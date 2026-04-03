@@ -16,13 +16,14 @@ const API_BASE = "https://api.football-data.org/v4";
 
 // ── Fetch upcoming matches from football-data.org ──────────────────────────
 async function fetchUpcomingMatches(leagueCode) {
-  const url = `${API_BASE}/competitions/${leagueCode}/matches?status=SCHEDULED&limit=20`;
+  const url = `${API_BASE}/competitions/${leagueCode}/matches?status=SCHEDULED`;
   const res = await fetch(url, {
     headers: { "X-Auth-Token": FOOTBALL_API_KEY },
   });
 
   if (!res.ok) {
-    log(`⚠️ API error for ${leagueCode}: ${res.status} ${res.statusText}`);
+    const errorText = await res.text();
+    log(`⚠️ API error for ${leagueCode}: ${res.status} ${res.statusText} - ${errorText}`);
     return [];
   }
 
