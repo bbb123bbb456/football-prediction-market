@@ -1,7 +1,6 @@
 # { "Depends": "py-genlayer:latest" }
 
 import json
-import re
 import genlayer.gl as gl
 from genlayer import Address, TreeMap, DynArray, u256
 
@@ -49,6 +48,7 @@ class PredictionMarket(gl.Contract):
 
     # ── Points / Leaderboard ─────────────────────────────────────────────────
     points: TreeMap[str, u256]                    # user_hex → total correct predictions
+    scored_users: DynArray[str]                    # tracks users who have points
 
     # ── Config ───────────────────────────────────────────────────────────────
     market_count: u256
@@ -179,45 +179,37 @@ class PredictionMarket(gl.Contract):
         away_team = market["away_team"]
         match_date = market["match_date"]
 
-        # --- STEP 1: Fetch match result from web ---
+        # --- Fetch match result, extract score, validate via consensus ---
         search_query = f"{home_team} vs {away_team} {match_date} final score result"
         search_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
 
-        web_result = gl.nondet.web.render(search_url, mode="text")
-
-        # --- STEP 2: Extract score with LLM ---
-        extraction_prompt = (
-            f"From the following web content, extract the final score of the football match "
-            f"between {home_team} and {away_team} played on {match_date}.\n\n"
-            f"Respond ONLY with a JSON object in this exact format, nothing else:\n"
-            f'{{"home_score": <integer>, "away_score": <integer>, "status": "finished"}}\n\n'
-            f"If the match has not been played yet, or the result is not found, respond:\n"
-            f'{{"status": "not_found"}}\n\n'
-            f"Rules:\n"
-            f"- home_score and away_score must be non-negative integers\n"
-            f"- Only extract results from completed, FINAL matches\n\n"
-            f"Web content:\n{web_result[:8000]}"
+        result_str = gl.eq_principle.prompt_non_comparative(
+            gl.nondet.exec_prompt(
+                f"From the following web content, extract the final score of the football match "
+                f"between {home_team} and {away_team} played on {match_date}.\n\n"
+                f"Respond ONLY with a JSON object in this exact format, nothing else:\n"
+                f'{{"home_score": <integer>, "away_score": <integer>, "status": "finished"}}\n\n'
+                f"If the match has not been played yet, or the result is not found, respond:\n"
+                f'{{"status": "not_found"}}\n\n'
+                f"Rules:\n"
+                f"- home_score and away_score must be non-negative integers\n"
+                f"- Only extract results from completed, FINAL matches\n\n"
+                f"Web content:\n{gl.nondet.web.render(search_url, mode='text')[:8000]}"
+            ),
+            f"Does this JSON contain a valid football match score? "
+            f"It must have 'home_score' and 'away_score' as non-negative integers. "
+            f"Accept if valid JSON with scores. Reject otherwise.",
         )
 
-        raw = gl.nondet.exec_prompt(extraction_prompt)
-        if isinstance(raw, dict):
-            result_dict = raw
-        else:
-            clean_result = re.sub(r'^```(?:json)?\s*|\s*```$', '', raw.strip())
-            result_dict = json.loads(clean_result)
-        result_str = json.dumps(result_dict, sort_keys=True)
+        # --- Parse the validated result ---
+        # Strip potential markdown code fences
+        clean = result_str.strip()
+        if clean.startswith("```"):
+            lines = clean.split("\n")
+            lines = [l for l in lines if not l.strip().startswith("```")]
+            clean = "\n".join(lines).strip()
 
-        # --- STEP 3: Equivalence Principle consensus ---
-        final_result = gl.eq_principle.prompt_non_comparative(
-            result_str,
-            f"Does this JSON contain a valid, completed football match score for "
-            f"{home_team} vs {away_team}? "
-            f"The JSON must have 'home_score' and 'away_score' as non-negative integers "
-            f"and 'status' equal to 'finished'. "
-            f"Respond 'true' only if valid. Respond 'false' otherwise.",
-        )
-
-        result = json.loads(final_result) if isinstance(final_result, str) else final_result
+        result = json.loads(clean)
 
         if result.get("status") != "finished":
             raise gl.vm.UserError("Match result not available yet. Try again later.")
@@ -243,12 +235,15 @@ class PredictionMarket(gl.Contract):
         bet_keys_json = self.market_bet_keys.get(market_id, "[]")
         bet_keys = json.loads(bet_keys_json)
 
+
         for bk in bet_keys:
             if bk in self.bets:
                 bet = json.loads(self.bets[bk])
                 if bet["prediction"] == outcome:
                     user = bet["user"]
                     current_points = self.points.get(user, u256(0))
+                    if current_points == u256(0):
+                        self.scored_users.append(user)
                     self.points[user] = current_points + u256(1)
 
     # =========================================================================
@@ -307,7 +302,8 @@ class PredictionMarket(gl.Contract):
     @gl.public.view
     def get_leaderboard(self) -> str:
         entries = []
-        for user, pts in self.points.items():
+        for user in self.scored_users:
+            pts = self.points.get(user, u256(0))
             total_bets = len(json.loads(self.user_bet_keys.get(user, "[]")))
             entries.append({
                 "user": user,
