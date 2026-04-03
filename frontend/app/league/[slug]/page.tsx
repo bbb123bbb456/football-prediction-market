@@ -9,6 +9,12 @@ import { useMarketsByLeague } from "@/lib/hooks/usePredictionMarket";
 import type { Market } from "@/lib/types";
 import { notFound } from "next/navigation";
 
+function sortByDate(markets: Market[]) {
+  return [...markets].sort(
+    (a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
+  );
+}
+
 export default function LeaguePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const league = getLeagueBySlug(slug);
@@ -18,6 +24,11 @@ export default function LeaguePage({ params }: { params: Promise<{ slug: string 
 
   const open = markets.filter((m: Market) => m.status === "open");
   const resolved = markets.filter((m: Market) => m.status === "resolved");
+
+  // Sort open markets by date — first one is Active, rest are Upcoming
+  const sortedOpen = sortByDate(open);
+  const activeMatches = sortedOpen.slice(0, 1);  // per league, only 1 active
+  const upcomingMatches = sortedOpen.slice(1);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -59,7 +70,7 @@ export default function LeaguePage({ params }: { params: Promise<{ slug: string 
             {[
               { label: "Total Markets", value: markets.length },
               { label: "Open Markets", value: open.length },
-              { label: "Total Bets", value: markets.reduce((a: number, m: Market) => a + m.total_bets, 0) },
+              { label: "Total Bets", value: markets.reduce((a: number, m: Market) => a + (m.total_bets || 0), 0) },
             ].map((s) => (
               <div key={s.label} className="glass-card p-4 rounded-xl border border-white/10 text-center">
                 <div className="text-2xl font-bold text-accent">{s.value}</div>
@@ -77,24 +88,37 @@ export default function LeaguePage({ params }: { params: Promise<{ slug: string 
             </div>
           )}
 
-          {/* Open Markets */}
+          {/* Active Match */}
           {!isLoading && (
             <section>
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                 <span className="text-green-400 animate-pulse">●</span>{" "}
-                Upcoming Matches
-                <span className="text-sm font-normal text-muted-foreground ml-2">({open.length})</span>
+                Active Match
+                <span className="text-sm font-normal text-muted-foreground ml-2">bet now!</span>
               </h2>
-              {open.length === 0 ? (
+              {activeMatches.length === 0 ? (
                 <div className="glass-card p-8 rounded-2xl text-center text-muted-foreground border border-white/10">
                   <div className="text-3xl mb-2">📋</div>
-                  No open markets for {league.name} yet.
+                  No active markets for {league.name} yet.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {open.map((m: Market) => <MatchCard key={m.market_id} market={m} />)}
+                  {activeMatches.map((m: Market) => <MatchCard key={m.market_id} market={m} />)}
                 </div>
               )}
+            </section>
+          )}
+
+          {/* Upcoming Markets */}
+          {!isLoading && upcomingMatches.length > 0 && (
+            <section>
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                📅 Upcoming Markets
+                <span className="text-sm font-normal text-muted-foreground ml-2">opens after active match resolves</span>
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {upcomingMatches.map((m: Market) => <MatchCard key={m.market_id} market={m} locked />)}
+              </div>
             </section>
           )}
 

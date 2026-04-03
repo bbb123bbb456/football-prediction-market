@@ -1,35 +1,67 @@
+# { "Depends": "py-genlayer:latest" }
+
 import json
+import re
 import genlayer.gl as gl
 from genlayer import Address, TreeMap, DynArray, u256
 
 
-# Desteklenen ligler ve takımları
+# ---------------------------------------------------------------------------
+# League & Team Constants
+# ---------------------------------------------------------------------------
 LEAGUES = {
-    "premier_league": ["Arsenal", "Manchester City", "Manchester United", "Aston Villa", "Liverpool"],
-    "la_liga": ["Barcelona", "Real Madrid", "Atletico Madrid", "Athletic Bilbao", "Villarreal"],
-    "serie_a": ["Inter Milan", "Napoli", "AC Milan", "Juventus", "Atalanta"],
-    "bundesliga": ["Bayern Munich", "Bayer Leverkusen", "Borussia Dortmund", "RB Leipzig", "Stuttgart"],
-    "ligue_1": ["PSG", "Monaco", "Marseille", "Lille", "Lyon"],
+    "premier_league": {
+        "name": "Premier League",
+        "teams": ["Arsenal", "Manchester City", "Manchester United", "Aston Villa", "Liverpool"],
+    },
+    "la_liga": {
+        "name": "La Liga",
+        "teams": ["Barcelona", "Real Madrid", "Atletico Madrid", "Athletic Bilbao", "Villarreal"],
+    },
+    "serie_a": {
+        "name": "Serie A",
+        "teams": ["Inter Milan", "Napoli", "AC Milan", "Juventus", "Atalanta"],
+    },
+    "bundesliga": {
+        "name": "Bundesliga",
+        "teams": ["Bayern Munich", "Bayer Leverkusen", "Borussia Dortmund", "RB Leipzig", "Stuttgart"],
+    },
+    "ligue_1": {
+        "name": "Ligue 1",
+        "teams": ["PSG", "Monaco", "Marseille", "Lille", "Lyon"],
+    },
+    "super_lig": {
+        "name": "Turkish Super Lig",
+        "teams": ["Galatasaray", "Fenerbahce", "Besiktas", "Samsunspor", "Trabzonspor"],
+    },
 }
 
 
 class PredictionMarket(gl.Contract):
-    # --- STATE ---
-    markets: TreeMap[str, str]              # market_id → JSON {league, home, away, date, status, outcome, home_score, away_score}
-    market_ids: DynArray[str]               # tüm market ID'leri sıralı
+    # ── Markets ──────────────────────────────────────────────────────────────
+    markets: TreeMap[str, str]                   # market_id → JSON
+    market_ids: DynArray[str]                    # ordered list of all market IDs
 
-    bets: TreeMap[str, str]                 # bet_key (market_id:user_hex) → JSON {prediction, user}
-    market_bet_keys: TreeMap[str, str]      # market_id → JSON array of bet_keys
-    user_bet_keys: TreeMap[str, str]        # user_hex → JSON array of bet_keys
+    # ── Bets ─────────────────────────────────────────────────────────────────
+    bets: TreeMap[str, str]                      # bet_key → JSON
+    market_bet_keys: TreeMap[str, str]            # market_id → JSON array of bet_keys
+    user_bet_keys: TreeMap[str, str]              # user_hex → JSON array of bet_keys
 
-    points: TreeMap[str, u256]              # user_hex → toplam doğru tahmin puanı
+    # ── Points / Leaderboard ─────────────────────────────────────────────────
+    points: TreeMap[str, u256]                    # user_hex → total correct predictions
 
+    # ── Config ───────────────────────────────────────────────────────────────
     market_count: u256
 
+    # =========================================================================
+    # Constructor
+    # =========================================================================
     def __init__(self):
         self.market_count = u256(0)
 
-    # ========== WRITE METHODS ==========
+    # =========================================================================
+    # Write Methods
+    # =========================================================================
 
     @gl.public.write
     def create_market(
@@ -37,17 +69,15 @@ class PredictionMarket(gl.Contract):
         league: str,
         home_team: str,
         away_team: str,
-        match_date: str,       # "YYYY-MM-DD" format
+        match_date: str,
     ):
-        # Lig kontrolü
         if league not in LEAGUES:
             raise gl.vm.UserError(
                 f"Unsupported league: {league}. Must be one of: {', '.join(LEAGUES.keys())}"
             )
 
-        teams = LEAGUES[league]
+        teams = LEAGUES[league]["teams"]
 
-        # Takım kontrolü
         if home_team not in teams:
             raise gl.vm.UserError(
                 f"{home_team} is not in the top 5 of {league}. Valid teams: {', '.join(teams)}"
@@ -59,16 +89,15 @@ class PredictionMarket(gl.Contract):
         if home_team == away_team:
             raise gl.vm.UserError("Home and away teams must be different")
 
-        # Market ID oluştur
         market_id = f"{league}_{home_team}_{away_team}_{match_date}".replace(" ", "_").lower()
 
-        # Zaten var mı kontrol et
         if market_id in self.markets:
             raise gl.vm.UserError(f"Market already exists: {market_id}")
 
-        # Market verisini kaydet
         market_data = json.dumps({
+            "market_id": market_id,
             "league": league,
+            "league_name": LEAGUES[league]["name"],
             "home_team": home_team,
             "away_team": away_team,
             "match_date": match_date,
@@ -76,6 +105,10 @@ class PredictionMarket(gl.Contract):
             "outcome": "",
             "home_score": -1,
             "away_score": -1,
+            "total_bets": 0,
+            "home_bets": 0,
+            "draw_bets": 0,
+            "away_bets": 0,
             "creator": str(gl.message.sender_address),
         })
 
@@ -85,50 +118,54 @@ class PredictionMarket(gl.Contract):
 
     @gl.public.write
     def place_bet(self, market_id: str, prediction: str):
-        # Market var mı?
         if market_id not in self.markets:
             raise gl.vm.UserError(f"Market not found: {market_id}")
 
         market = json.loads(self.markets[market_id])
 
-        # Market açık mı?
         if market["status"] != "open":
             raise gl.vm.UserError(f"Market is not open. Current status: {market['status']}")
 
-        # Geçerli tahmin mi?
         if prediction not in ("home", "draw", "away"):
             raise gl.vm.UserError("Prediction must be 'home', 'draw', or 'away'")
 
         user_hex = str(gl.message.sender_address)
         bet_key = f"{market_id}:{user_hex}"
 
-        # Kullanıcı zaten bahis yapmış mı?
         if bet_key in self.bets:
             raise gl.vm.UserError("You already placed a bet on this market")
 
-        # Bahsi kaydet
         bet_data = json.dumps({
+            "bet_id": bet_key,
             "prediction": prediction,
             "user": user_hex,
             "market_id": market_id,
         })
         self.bets[bet_key] = bet_data
 
-        # Market'in bahis listesine ekle
         existing_keys = json.loads(self.market_bet_keys.get(market_id, "[]"))
         existing_keys.append(bet_key)
         self.market_bet_keys[market_id] = json.dumps(existing_keys)
 
-        # Kullanıcının bahis listesine ekle
         user_keys = json.loads(self.user_bet_keys.get(user_hex, "[]"))
         user_keys.append(bet_key)
         self.user_bet_keys[user_hex] = json.dumps(user_keys)
 
+        # Update market counters
+        market["total_bets"] = market["total_bets"] + 1
+        if prediction == "home":
+            market["home_bets"] = market["home_bets"] + 1
+        elif prediction == "draw":
+            market["draw_bets"] = market["draw_bets"] + 1
+        else:
+            market["away_bets"] = market["away_bets"] + 1
+        self.markets[market_id] = json.dumps(market)
+
     @gl.public.write
     def resolve_market(self, market_id: str):
         """
-        Intelligent Oracle: Web'den maç sonucunu çeker, LLM ile parse eder,
-        Equivalence Principle ile consensus sağlar, kazananları ödüllendirir.
+        Intelligent Oracle: fetches match result from web, parses with LLM,
+        uses Equivalence Principle for consensus, awards points to winners.
         """
         if market_id not in self.markets:
             raise gl.vm.UserError(f"Market not found: {market_id}")
@@ -142,43 +179,47 @@ class PredictionMarket(gl.Contract):
         away_team = market["away_team"]
         match_date = market["match_date"]
 
-        # --- STEP 1: Web'den maç sonucunu çek ---
-        search_query = f"{home_team} vs {away_team} {match_date} final score"
+        # --- STEP 1: Fetch match result from web ---
+        search_query = f"{home_team} vs {away_team} {match_date} final score result"
         search_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
 
-        # gl.nondet.web.render() → leader validator web'e gider, sayfayı render eder
-        # diğer validator'lar bağımsız olarak aynı URL'i render eder
         web_result = gl.nondet.web.render(search_url, mode="text")
 
-        # --- STEP 2: LLM ile skoru extract et ---
+        # --- STEP 2: Extract score with LLM ---
         extraction_prompt = (
             f"From the following web content, extract the final score of the football match "
             f"between {home_team} and {away_team} played on {match_date}.\n\n"
             f"Respond ONLY with a JSON object in this exact format, nothing else:\n"
-            f'{{"home_score": <integer>, "away_score": <integer>, "found": true}}\n\n'
-            f"If the match result is not found or the match has not been played yet, respond:\n"
-            f'{{"found": false}}\n\n'
-            f"Web content:\n{web_result}"
+            f'{{"home_score": <integer>, "away_score": <integer>, "status": "finished"}}\n\n'
+            f"If the match has not been played yet, or the result is not found, respond:\n"
+            f'{{"status": "not_found"}}\n\n'
+            f"Rules:\n"
+            f"- home_score and away_score must be non-negative integers\n"
+            f"- Only extract results from completed, FINAL matches\n\n"
+            f"Web content:\n{web_result[:8000]}"
         )
 
-        # gl.nondet.exec_prompt() → leader LLM'e sorar, validator'lar kendi LLM'leriyle doğrular
-        result_str = gl.nondet.exec_prompt(extraction_prompt)
+        raw = gl.nondet.exec_prompt(extraction_prompt)
+        if isinstance(raw, dict):
+            result_dict = raw
+        else:
+            clean_result = re.sub(r'^```(?:json)?\s*|\s*```$', '', raw.strip())
+            result_dict = json.loads(clean_result)
+        result_str = json.dumps(result_dict, sort_keys=True)
 
-        # --- STEP 3: Equivalence Principle ile consensus ---
-        # prompt_non_comparative: validator'ın result'ını bağımsız değerlendirir
-        # "Bu cevap gerçek bir maç skoru içeriyor mu?" sorusuna evet/hayır
+        # --- STEP 3: Equivalence Principle consensus ---
         final_result = gl.eq_principle.prompt_non_comparative(
             result_str,
-            f"Does this JSON response contain a valid final score for a football match "
-            f"between {home_team} and {away_team}? The response must have 'found' as true "
-            f"and both 'home_score' and 'away_score' as non-negative integers. "
-            f"Answer 'valid' if it does, 'invalid' if it doesn't."
+            f"Does this JSON contain a valid, completed football match score for "
+            f"{home_team} vs {away_team}? "
+            f"The JSON must have 'home_score' and 'away_score' as non-negative integers "
+            f"and 'status' equal to 'finished'. "
+            f"Respond 'true' only if valid. Respond 'false' otherwise.",
         )
 
-        # --- STEP 4: Sonucu parse et ve kaydet ---
-        result = json.loads(result_str)
+        result = json.loads(final_result) if isinstance(final_result, str) else final_result
 
-        if not result.get("found", False):
+        if result.get("status") != "finished":
             raise gl.vm.UserError("Match result not available yet. Try again later.")
 
         home_score = int(result["home_score"])
@@ -191,14 +232,14 @@ class PredictionMarket(gl.Contract):
         else:
             outcome = "draw"
 
-        # Market'i güncelle
+        # Update market
         market["status"] = "resolved"
         market["outcome"] = outcome
         market["home_score"] = home_score
         market["away_score"] = away_score
         self.markets[market_id] = json.dumps(market)
 
-        # --- STEP 5: Doğru tahmin edenlere puan ver ---
+        # Award points to correct predictors
         bet_keys_json = self.market_bet_keys.get(market_id, "[]")
         bet_keys = json.loads(bet_keys_json)
 
@@ -210,7 +251,9 @@ class PredictionMarket(gl.Contract):
                     current_points = self.points.get(user, u256(0))
                     self.points[user] = current_points + u256(1)
 
-    # ========== VIEW METHODS ==========
+    # =========================================================================
+    # Read Methods (Views)
+    # =========================================================================
 
     @gl.public.view
     def get_market(self, market_id: str) -> str:
@@ -222,9 +265,7 @@ class PredictionMarket(gl.Contract):
     def get_all_markets(self) -> str:
         result = []
         for mid in self.market_ids:
-            market = json.loads(self.markets[mid])
-            market["market_id"] = mid
-            result.append(market)
+            result.append(json.loads(self.markets[mid]))
         return json.dumps(result)
 
     @gl.public.view
@@ -233,28 +274,16 @@ class PredictionMarket(gl.Contract):
         for mid in self.market_ids:
             market = json.loads(self.markets[mid])
             if market["league"] == league:
-                market["market_id"] = mid
                 result.append(market)
         return json.dumps(result)
 
     @gl.public.view
-    def get_open_markets(self) -> str:
+    def get_live_matches(self) -> str:
         result = []
         for mid in self.market_ids:
             market = json.loads(self.markets[mid])
             if market["status"] == "open":
-                market["market_id"] = mid
                 result.append(market)
-        return json.dumps(result)
-
-    @gl.public.view
-    def get_market_bets(self, market_id: str) -> str:
-        bet_keys_json = self.market_bet_keys.get(market_id, "[]")
-        bet_keys = json.loads(bet_keys_json)
-        result = []
-        for bk in bet_keys:
-            if bk in self.bets:
-                result.append(json.loads(self.bets[bk]))
         return json.dumps(result)
 
     @gl.public.view
@@ -262,33 +291,42 @@ class PredictionMarket(gl.Contract):
         user_keys_json = self.user_bet_keys.get(user_address, "[]")
         user_keys = json.loads(user_keys_json)
         result = []
-        for uk in user_keys:
-            if uk in self.bets:
-                bet = json.loads(self.bets[uk])
+        for bk in user_keys:
+            if bk in self.bets:
+                bet = json.loads(self.bets[bk])
                 if bet["market_id"] in self.markets:
                     market = json.loads(self.markets[bet["market_id"]])
-                    bet["market_status"] = market["status"]
-                    bet["market_outcome"] = market.get("outcome", "")
-                    bet["won"] = (market["status"] == "resolved" and bet["prediction"] == market.get("outcome", ""))
+                    bet["market"] = market
+                    if market["status"] == "resolved":
+                        bet["result"] = "won" if bet["prediction"] == market["outcome"] else "lost"
+                    else:
+                        bet["result"] = "pending"
                 result.append(bet)
         return json.dumps(result)
 
     @gl.public.view
-    def get_user_points(self, user_address: str) -> str:
-        pts = self.points.get(user_address, u256(0))
-        return json.dumps({"user": user_address, "points": int(pts)})
-
-    @gl.public.view
     def get_leaderboard(self) -> str:
         entries = []
-        for user_hex in self.points:
+        for user, pts in self.points.items():
+            total_bets = len(json.loads(self.user_bet_keys.get(user, "[]")))
             entries.append({
-                "user": user_hex,
-                "points": int(self.points[user_hex]),
+                "user": user,
+                "points": int(pts),
+                "total_bets": total_bets,
             })
-        entries.sort(key=lambda x: x["points"], reverse=True)
-        return json.dumps(entries[:50])
+        entries.sort(key=lambda e: e["points"], reverse=True)
+        for i, e in enumerate(entries):
+            e["rank"] = i + 1
+        return json.dumps(entries)
 
     @gl.public.view
-    def get_supported_leagues(self) -> str:
+    def get_user_points(self, user: str) -> int:
+        return int(self.points.get(user, u256(0)))
+
+    @gl.public.view
+    def get_leagues(self) -> str:
         return json.dumps(LEAGUES)
+
+    @gl.public.view
+    def get_market_count(self) -> int:
+        return int(self.market_count)

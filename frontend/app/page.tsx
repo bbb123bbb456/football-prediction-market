@@ -6,9 +6,21 @@ import { MatchCard } from "@/components/MatchCard";
 import { LeaderboardTable } from "@/components/Leaderboard";
 import { LEAGUES, LEAGUE_SLUGS } from "@/lib/constants";
 import { useLiveMatches } from "@/lib/hooks/usePredictionMarket";
+import type { Market } from "@/lib/types";
+
+function sortByDate(markets: Market[]) {
+  return [...markets].sort(
+    (a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
+  );
+}
 
 export default function HomePage() {
   const { data: liveMatches = [] } = useLiveMatches();
+
+  // Sort open markets by date — first one is Active, rest are Upcoming
+  const sorted = sortByDate(liveMatches);
+  const activeMatches = sorted.slice(0, 6);   // nearest 6 are active (bettable)
+  const upcomingMatches = sorted.slice(6);      // rest are upcoming (locked)
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -27,7 +39,7 @@ export default function HomePage() {
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Bet on matches from the Premier League, La Liga, Serie A, Bundesliga, Ligue 1 & Süper Lig.
-              Results verified automatically by GenLayer's AI oracle — no oracles, no trust.
+              Results verified automatically by GenLayer&apos;s AI oracle — no oracles, no trust.
             </p>
           </div>
 
@@ -43,22 +55,23 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* Main content area: Live + Leaderboard */}
+          {/* Main content area: Active Matches + Leaderboard */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Live Matches */}
+            {/* Active Matches */}
             <section className="lg:col-span-8">
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                <span className="text-green-400 animate-pulse">●</span> Live Markets
+                <span className="text-green-400 animate-pulse">●</span> Active Markets
+                <span className="text-sm font-normal text-muted-foreground ml-2">bet now!</span>
               </h2>
-              {liveMatches.length === 0 ? (
+              {activeMatches.length === 0 ? (
                 <div className="glass-card p-8 rounded-2xl text-center text-muted-foreground">
                   <div className="text-4xl mb-3">📋</div>
-                  <p className="font-medium">No open markets yet</p>
-                  <p className="text-sm mt-1">Create a market using the button in the navbar</p>
+                  <p className="font-medium">No active markets yet</p>
+                  <p className="text-sm mt-1">Markets will appear here when fixtures are created</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {liveMatches.slice(0, 6).map((m) => (
+                  {activeMatches.map((m) => (
                     <MatchCard key={m.market_id} market={m} showLeague />
                   ))}
                 </div>
@@ -75,6 +88,21 @@ export default function HomePage() {
               </div>
             </section>
           </div>
+
+          {/* Upcoming Markets */}
+          {upcomingMatches.length > 0 && (
+            <section>
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <span>📅</span> Upcoming Markets
+                <span className="text-sm font-normal text-muted-foreground ml-2">opens after current matches resolve</span>
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {upcomingMatches.map((m) => (
+                  <MatchCard key={m.market_id} market={m} showLeague locked />
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* How it Works */}
           <section className="glass-card p-8 rounded-2xl border border-white/10 animate-fade-in">

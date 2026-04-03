@@ -1,5 +1,5 @@
 import { createClient } from "genlayer-js";
-import { studionet } from "genlayer-js/chains";
+import { testnetBradbury } from "genlayer-js/chains";
 import type { Market, Bet, LeaderboardEntry } from "../types";
 
 class PredictionMarket {
@@ -8,7 +8,7 @@ class PredictionMarket {
 
   constructor(contractAddress: string, address?: string | null, studioUrl?: string) {
     this.contractAddress = contractAddress as `0x${string}`;
-    const config: any = { chain: studionet };
+    const config: any = { chain: testnetBradbury };
     if (address) config.account = address as `0x${string}`;
     if (studioUrl) config.endpoint = studioUrl;
     this.client = createClient(config);

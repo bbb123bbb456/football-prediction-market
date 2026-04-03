@@ -7,6 +7,7 @@ import { LEAGUES } from "@/lib/constants";
 interface MatchCardProps {
   market: Market;
   showLeague?: boolean;
+  locked?: boolean;
 }
 
 function formatDate(dateStr: string) {
@@ -15,7 +16,13 @@ function formatDate(dateStr: string) {
   );
 }
 
-function statusBadge(status: string) {
+function statusBadge(status: string, locked?: boolean) {
+  if (locked)
+    return (
+      <span className="text-xs px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded-full border border-yellow-500/30">
+        📅 UPCOMING
+      </span>
+    );
   if (status === "open")
     return (
       <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full border border-green-500/30 animate-pulse">
@@ -29,15 +36,17 @@ function statusBadge(status: string) {
   );
 }
 
-export function MatchCard({ market, showLeague = false }: MatchCardProps) {
+export function MatchCard({ market, showLeague = false, locked = false }: MatchCardProps) {
   const league = LEAGUES[market.league as keyof typeof LEAGUES];
+  const Wrapper = locked ? "div" : Link;
+  const wrapperProps = locked ? { className: "block opacity-70" } : { href: `/match/${encodeURIComponent(market.market_id)}`, className: "block group" };
   const total = market.total_bets || 1;
   const homeP = Math.round((market.home_bets / total) * 100);
   const drawP = Math.round((market.draw_bets / total) * 100);
   const awayP = 100 - homeP - drawP;
 
   return (
-    <Link href={`/match/${encodeURIComponent(market.market_id)}`} className="block group">
+    <Wrapper {...(wrapperProps as any)}>
       <div className="relative rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300 hover:border-white/20 hover:shadow-xl overflow-hidden">
         {/* Top color stripe */}
         <div
@@ -53,7 +62,7 @@ export function MatchCard({ market, showLeague = false }: MatchCardProps) {
               </span>
             )}
             {!showLeague && <span className="text-xs text-muted-foreground">{formatDate(market.match_date)}</span>}
-            {statusBadge(market.status)}
+            {statusBadge(market.status, locked)}
           </div>
 
           {/* Teams */}
@@ -112,10 +121,14 @@ export function MatchCard({ market, showLeague = false }: MatchCardProps) {
           {/* Footer */}
           <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-muted-foreground">
             <span>{market.total_bets} bets</span>
-            <span className="text-accent group-hover:underline">View →</span>
+            {locked ? (
+              <span className="text-yellow-400 text-xs">Opens after current match resolves</span>
+            ) : (
+              <span className="text-accent group-hover:underline">View →</span>
+            )}
           </div>
         </div>
       </div>
-    </Link>
+    </Wrapper>
   );
 }
