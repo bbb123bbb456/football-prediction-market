@@ -6,6 +6,7 @@ import PredictionMarket from "../contracts/PredictionMarket";
 import { getContractAddress, getStudioUrl } from "../genlayer/client";
 import { useWallet } from "../genlayer/wallet";
 import { success, error } from "../utils/toast";
+import { STATIC_FIXTURES, getFixturesByLeague as getStaticByLeague } from "../fixtures";
 import type { Market, Bet, LeaderboardEntry } from "../types";
 
 // ── Contract instance hook ────────────────────────────────────────────────
@@ -21,14 +22,27 @@ export function usePredictionMarketContract(): PredictionMarket | null {
   }, [contractAddress, address, studioUrl]);
 }
 
+// ── Helper: merge static fixtures with on-chain data ──────────────────────
+
+function mergeWithStatic(onChain: Market[], staticData: Market[]): Market[] {
+  if (onChain.length > 0) return onChain;
+  return staticData;
+}
+
 // ── Read hooks ────────────────────────────────────────────────────────────
 
 export function useAllMarkets() {
   const contract = usePredictionMarketContract();
   return useQuery<Market[], Error>({
     queryKey: ["markets", "all"],
-    queryFn: () => (contract ? contract.getAllMarkets() : Promise.resolve([])),
-    enabled: !!contract,
+    queryFn: async () => {
+      if (!contract) return STATIC_FIXTURES as unknown as Market[];
+      try {
+        const data = await contract.getAllMarkets();
+        return data.length > 0 ? data : STATIC_FIXTURES as unknown as Market[];
+      } catch { return STATIC_FIXTURES as unknown as Market[]; }
+    },
+    enabled: true,
     staleTime: 5000,
     refetchOnWindowFocus: true,
   });
@@ -38,9 +52,18 @@ export function useMarket(marketId: string | null) {
   const contract = usePredictionMarketContract();
   return useQuery<Market | null, Error>({
     queryKey: ["market", marketId],
-    queryFn: () =>
-      contract && marketId ? contract.getMarket(marketId) : Promise.resolve(null),
-    enabled: !!contract && !!marketId,
+    queryFn: async () => {
+      if (!marketId) return null;
+      // Check static first
+      const staticMatch = STATIC_FIXTURES.find(f => f.market_id === marketId);
+      if (!contract) return (staticMatch as unknown as Market) || null;
+      try {
+        const data = await contract.getMarket(marketId);
+        if (data && !("error" in data)) return data;
+        return (staticMatch as unknown as Market) || null;
+      } catch { return (staticMatch as unknown as Market) || null; }
+    },
+    enabled: !!marketId,
     staleTime: 5000,
     refetchOnWindowFocus: true,
   });
@@ -50,9 +73,16 @@ export function useMarketsByLeague(league: string | null) {
   const contract = usePredictionMarketContract();
   return useQuery<Market[], Error>({
     queryKey: ["markets", "league", league],
-    queryFn: () =>
-      contract && league ? contract.getMarketsByLeague(league) : Promise.resolve([]),
-    enabled: !!contract && !!league,
+    queryFn: async () => {
+      if (!league) return [];
+      const staticLeague = getStaticByLeague(league) as unknown as Market[];
+      if (!contract) return staticLeague;
+      try {
+        const data = await contract.getMarketsByLeague(league);
+        return data.length > 0 ? data : staticLeague;
+      } catch { return staticLeague; }
+    },
+    enabled: !!league,
     staleTime: 5000,
     refetchOnWindowFocus: true,
   });
@@ -62,8 +92,14 @@ export function useLiveMatches() {
   const contract = usePredictionMarketContract();
   return useQuery<Market[], Error>({
     queryKey: ["markets", "live"],
-    queryFn: () => (contract ? contract.getLiveMatches() : Promise.resolve([])),
-    enabled: !!contract,
+    queryFn: async () => {
+      if (!contract) return STATIC_FIXTURES as unknown as Market[];
+      try {
+        const data = await contract.getLiveMatches();
+        return data.length > 0 ? data : STATIC_FIXTURES as unknown as Market[];
+      } catch { return STATIC_FIXTURES as unknown as Market[]; }
+    },
+    enabled: true,
     staleTime: 10000,
     refetchInterval: 30000,
   });
