@@ -1,35 +1,52 @@
-import { simulator, createAccount } from "genlayer-js/chains";
-import { createClient, http } from "genlayer-js";
+import { readFileSync } from "fs";
 import path from "path";
-import fs from "fs";
+import {
+  TransactionHash,
+  TransactionStatus,
+  GenLayerClient,
+  DecodedDeployData,
+  GenLayerChain,
+} from "genlayer-js/types";
+import { localnet } from "genlayer-js/chains";
 
-const main = async () => {
-  const client = createClient({ chain: simulator, transport: http() });
-  const account = createAccount();
+export default async function main(client: GenLayerClient<any>) {
+  const filePath = path.resolve(process.cwd(), "contracts/prediction_market.py");
 
-  // Contract dosyasını oku
-  const contractPath = path.resolve(
-    __dirname,
-    "../contracts/prediction_market.py"
-  );
-  const contractCode = fs.readFileSync(contractPath, "utf-8");
+  try {
+    const contractCode = new Uint8Array(readFileSync(filePath));
 
-  console.log("Deploying PredictionMarket contract...");
+    await client.initializeConsensusSmartContract();
 
-  const receipt = await client.deployContract({
-    account,
-    code: contractCode,
-    args: [],
-  });
+    const deployTransaction = await client.deployContract({
+      code: contractCode,
+      args: [],
+    });
 
-  console.log("✅ Contract deployed!");
-  console.log("📍 Address:", receipt.contractAddress);
-  console.log("");
-  console.log("👉 Bu adresi kopyala ve şu dosyaya yapıştır:");
-  console.log("   frontend/.env → NEXT_PUBLIC_CONTRACT_ADDRESS=<bu_adres>");
-};
+    const receipt = await client.waitForTransactionReceipt({
+      hash: deployTransaction as TransactionHash,
+      status: TransactionStatus.ACCEPTED,
+      retries: 200,
+    });
 
-main().catch((err) => {
-  console.error("❌ Deploy failed:", err);
-  process.exit(1);
-});
+    if (
+      receipt.status !== 5 &&
+      receipt.status !== 6 &&
+      receipt.statusName !== "ACCEPTED" &&
+      receipt.statusName !== "FINALIZED"
+    ) {
+      throw new Error(`Deployment failed. Receipt: ${JSON.stringify(receipt)}`);
+    }
+
+    const deployedContractAddress =
+      (client.chain as GenLayerChain).id === localnet.id
+        ? receipt.data.contract_address
+        : (receipt.txDataDecoded as DecodedDeployData)?.contractAddress;
+
+    console.log(`✅ Contract deployed at address: ${deployedContractAddress}`);
+    console.log("");
+    console.log("👉 Bu adresi kopyala ve frontend/.env dosyasına yapıştır:");
+    console.log(`   NEXT_PUBLIC_CONTRACT_ADDRESS=${deployedContractAddress}`);
+  } catch (error) {
+    throw new Error(`Error during deployment: ${error}`);
+  }
+}
