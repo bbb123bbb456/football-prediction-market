@@ -7,6 +7,7 @@
 
 import { createClient } from "genlayer-js";
 import { testnetBradbury } from "genlayer-js/chains";
+import { privateKeyToAccount } from "viem/accounts";
 import {
   CONTRACT_ADDRESS, FOOTBALL_API_KEY, PRIVATE_KEY,
   LEAGUE_CODES, TEAM_MAP, CONTRACT_TEAMS, mapTeamName, isOurTeam, log
@@ -119,9 +120,10 @@ async function main() {
   }
 
   // Create genlayer client
+  const account = privateKeyToAccount(PRIVATE_KEY);
   const client = createClient({
     chain: testnetBradbury,
-    account: PRIVATE_KEY,
+    account: account,
   });
 
   // Get existing markets to avoid duplicates

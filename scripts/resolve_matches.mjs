@@ -12,6 +12,7 @@
 
 import { createClient } from "genlayer-js";
 import { testnetBradbury } from "genlayer-js/chains";
+import { privateKeyToAccount } from "viem/accounts";
 import { CONTRACT_ADDRESS, PRIVATE_KEY, log } from "./config.mjs";
 
 // ── Get all open markets from contract ──────────────────────────────────────
@@ -85,9 +86,10 @@ async function main() {
     process.exit(1);
   }
 
+  const account = privateKeyToAccount(PRIVATE_KEY);
   const client = createClient({
     chain: testnetBradbury,
-    account: PRIVATE_KEY,
+    account: account,
   });
 
   const openMarkets = await getOpenMarkets(client);
