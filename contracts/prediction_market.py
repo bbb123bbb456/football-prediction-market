@@ -183,22 +183,31 @@ class PredictionMarket(gl.Contract):
         search_query = f"{home_team} vs {away_team} {match_date} final score result"
         search_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
 
-        result_str = gl.eq_principle.prompt_non_comparative(
-            gl.nondet.exec_prompt(
-                f"From the following web content, extract the final score of the football match "
-                f"between {home_team} and {away_team} played on {match_date}.\n\n"
-                f"Respond ONLY with a JSON object in this exact format, nothing else:\n"
-                f'{{"home_score": <integer>, "away_score": <integer>, "status": "finished"}}\n\n'
-                f"If the match has not been played yet, or the result is not found, respond:\n"
-                f'{{"status": "not_found"}}\n\n'
-                f"Rules:\n"
-                f"- home_score and away_score must be non-negative integers\n"
-                f"- Only extract results from completed, FINAL matches\n\n"
-                f"Web content:\n{gl.nondet.web.render(search_url, mode='text')[:8000]}"
-            ),
+        def fetch_data():
+            return gl.nondet.web.render(search_url, mode='text')[:8000]
+
+        task_prompt = (
+            f"From the provided web content, extract the final score of the football match "
+            f"between {home_team} and {away_team} played on {match_date}.\n\n"
+            f"Respond ONLY with a JSON object in this exact format, nothing else:\n"
+            f'{{"home_score": <integer>, "away_score": <integer>, "status": "finished"}}\n\n'
+            f"If the match has not been played yet, or the result is not found, respond:\n"
+            f'{{"status": "not_found"}}\n\n'
+            f"Rules:\n"
+            f"- home_score and away_score must be non-negative integers\n"
+            f"- Only extract results from completed, FINAL matches"
+        )
+
+        criteria_prompt = (
             f"Does this JSON contain a valid football match score? "
             f"It must have 'home_score' and 'away_score' as non-negative integers. "
-            f"Accept if valid JSON with scores. Reject otherwise.",
+            f"Accept if valid JSON with scores. Reject otherwise."
+        )
+
+        result_str = gl.eq_principle.prompt_non_comparative(
+            fetch_data,
+            task=task_prompt,
+            criteria=criteria_prompt,
         )
 
         # --- Parse the validated result ---
