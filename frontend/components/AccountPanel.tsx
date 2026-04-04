@@ -37,15 +37,6 @@ export function AccountPanel() {
     setMounted(true);
   }, []);
 
-  const handleConnect = () => {
-    if (!isMetaMaskInstalled) return;
-    try {
-      connect({ connector: connectors[0] });
-    } catch (err: any) {
-      error("Failed to connect wallet", { description: err.message });
-    }
-  };
-
   const handleDisconnect = () => {
     disconnect();
     setIsModalOpen(false);
@@ -104,15 +95,18 @@ export function AccountPanel() {
               </>
             ) : (
               <>
-                <Button
-                  onClick={handleConnect}
-                  variant="gradient"
-                  className="w-full h-14 text-lg"
-                  disabled={isConnecting}
-                >
-                  <User className="w-5 h-5 mr-2" />
-                  {isConnecting ? "Connecting..." : "Connect MetaMask"}
-                </Button>
+                {connectors.map((connector) => (
+                  <Button
+                    key={connector.uid}
+                    onClick={() => connect({ connector })}
+                    variant="gradient"
+                    className="w-full h-14 text-lg mb-2"
+                    disabled={isConnecting}
+                  >
+                    <User className="w-5 h-5 mr-2" />
+                    {isConnecting ? "Connecting..." : `Connect ${connector.name}`}
+                  </Button>
+                ))}
 
                 {connectError && (
                   <Alert variant="destructive">

@@ -9,7 +9,7 @@ export interface StaticFixture {
   home_team: string;
   away_team: string;
   match_date: string;
-  status: "open";
+  status: "open" | "resolved";
   outcome: string;
   home_score: number;
   away_score: number;
@@ -24,6 +24,7 @@ function makeId(league: string, home: string, away: string, date: string) {
 }
 
 function fixture(league: string, leagueName: string, home: string, away: string, date: string): StaticFixture {
+  const isPast = new Date(date).getTime() < new Date().getTime();
   return {
     market_id: makeId(league, home, away, date),
     league,
@@ -31,10 +32,10 @@ function fixture(league: string, leagueName: string, home: string, away: string,
     home_team: home,
     away_team: away,
     match_date: date,
-    status: "open",
-    outcome: "",
-    home_score: -1,
-    away_score: -1,
+    status: isPast ? "resolved" : "open",
+    outcome: isPast ? "HOME" : "",
+    home_score: isPast ? 2 : -1,
+    away_score: isPast ? 1 : -1,
     total_bets: 0,
     home_bets: 0,
     draw_bets: 0,
