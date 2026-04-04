@@ -22,7 +22,7 @@ const STATUS_LABELS: Record<string, string> = { won: "✅ Won", lost: "❌ Lost"
 
 export default function MyBetsPage() {
   const { address } = useWallet();
-  const { data: bets = [], isLoading } = useUserBets(address);
+  const { data: bets = [], isLoading } = useUserBets(address ?? null);
 
   const won = bets.filter((b: Bet) => b.result === "won").length;
   const lost = bets.filter((b: Bet) => b.result === "lost").length;
