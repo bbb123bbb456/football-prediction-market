@@ -1,4 +1,4 @@
-# { "Depends": "py-genlayer:latest" }
+# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
 from genlayer import *
 import json
@@ -56,7 +56,15 @@ class PredictionMarket(gl.Contract):
     # =========================================================================
     # Constructor
     # =========================================================================
-    def __init__(self):
+    def __init__(self) -> None:
+        self.markets = TreeMap()
+        self.market_ids = DynArray()
+        self.bets = TreeMap()
+        self.market_bet_keys = TreeMap()
+        self.user_bet_keys = TreeMap()
+        self.points = TreeMap()
+        self.scored_users = DynArray()
+        self.claimable_balances = TreeMap()
         self.market_count = u256(0)
 
     # =========================================================================
