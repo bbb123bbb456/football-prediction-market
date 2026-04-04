@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePlaceBet } from "@/lib/hooks/usePredictionMarket";
+import { useBalance } from "@/lib/hooks/useBalance";
 import type { Market } from "@/lib/types";
 import type { PredictionType } from "@/lib/constants";
 import { PREDICTION_LABELS } from "@/lib/constants";
@@ -18,12 +19,19 @@ const OPTIONS: { value: PredictionType; label: string; color: string; icon: stri
 
 export function BetForm({ market }: BetFormProps) {
   const [selected, setSelected] = useState<PredictionType | null>(null);
+  const [amount, setAmount] = useState<string>("");
   const { placeBet, isPlacing } = usePlaceBet();
+  const { data: balance, isLoading: isBalanceLoading } = useBalance();
+
+  const numAmount = parseFloat(amount);
+  const numBalance = parseFloat(balance || "0");
+  const isInvalidAmount = isNaN(numAmount) || numAmount <= 0;
+  const isInsufficientFunds = !isInvalidAmount && numAmount > numBalance;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selected) return;
-    placeBet({ marketId: market.market_id, prediction: selected });
+    if (!selected || isInvalidAmount || isInsufficientFunds) return;
+    placeBet({ marketId: market.market_id, prediction: selected, amount });
   };
 
   return (
@@ -64,9 +72,42 @@ export function BetForm({ market }: BetFormProps) {
         })}
       </div>
 
+      <div className="space-y-2">
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-muted-foreground">Wager Amount (GEN)</span>
+          <span className="text-muted-foreground flex gap-2">
+            Wallet Balance: {isBalanceLoading ? "..." : (balance ? Number(balance).toFixed(2) : "0")} GEN
+            {balance && (
+              <button 
+                type="button" 
+                onClick={() => setAmount(balance)}
+                className="text-accent hover:text-accent-foreground font-semibold"
+              >
+                Max
+              </button>
+            )}
+          </span>
+        </div>
+        <input
+          type="number"
+          step="0.01"
+          min="0.01"
+          placeholder="0.00"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className={`w-full bg-white/5 border rounded-xl p-3 text-lg focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
+            isInsufficientFunds ? "border-red-500 focus:ring-red-500" : "border-white/10"
+          }`}
+          disabled={isPlacing}
+        />
+        {isInsufficientFunds && (
+          <p className="text-red-500 text-sm mt-1">Insufficient GEN token balance.</p>
+        )}
+      </div>
+
       <button
         type="submit"
-        disabled={!selected || isPlacing}
+        disabled={!selected || isInvalidAmount || isInsufficientFunds || isPlacing}
         className="w-full py-3 px-6 rounded-xl font-bold text-sm transition-all duration-200
           bg-accent text-white hover:bg-accent/90 hover:shadow-[0_0_32px_rgba(155,106,246,0.4)]
           disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none

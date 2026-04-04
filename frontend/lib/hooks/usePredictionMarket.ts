@@ -185,11 +185,11 @@ export function usePlaceBet() {
   const [isPlacing, setIsPlacing] = useState(false);
 
   const mutation = useMutation({
-    mutationFn: async ({ marketId, prediction }: { marketId: string; prediction: string }) => {
+    mutationFn: async ({ marketId, prediction, amount }: { marketId: string; prediction: string; amount: string }) => {
       if (!contract) throw new Error("Contract not configured");
       if (!address) throw new Error("Wallet not connected");
       setIsPlacing(true);
-      return contract.placeBet(marketId, prediction);
+      return contract.placeBet(marketId, prediction, amount);
     },
     onSuccess: (_data, { marketId }) => {
       queryClient.invalidateQueries({ queryKey: ["markets"] });

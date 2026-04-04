@@ -1,5 +1,6 @@
 import { createClient } from "genlayer-js";
 import { testnetBradbury } from "genlayer-js/chains";
+import { parseEther } from "viem";
 import type { Market, Bet, LeaderboardEntry } from "../types";
 
 class PredictionMarket {
@@ -22,12 +23,12 @@ class PredictionMarket {
     }) as Promise<T>;
   }
 
-  private async write(functionName: string, args: any[]): Promise<any> {
+  private async write(functionName: string, args: any[], options: { value?: bigint } = {}): Promise<any> {
     const txHash = await this.client.writeContract({
       address: this.contractAddress,
       functionName,
       args,
-      value: BigInt(0),
+      value: options.value || BigInt(0),
     });
     return this.client.waitForTransactionReceipt({
       hash: txHash,
@@ -90,8 +91,8 @@ class PredictionMarket {
     return this.write("create_market", [league, homeTeam, awayTeam, matchDate]);
   }
 
-  async placeBet(marketId: string, prediction: string): Promise<any> {
-    return this.write("place_bet", [marketId, prediction]);
+  async placeBet(marketId: string, prediction: string, amount: string): Promise<any> {
+    return this.write("place_bet", [marketId, prediction], { value: parseEther(amount) });
   }
 
   async resolveMarket(marketId: string): Promise<any> {

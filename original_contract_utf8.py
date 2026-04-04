@@ -1,4 +1,4 @@
-# { "Depends": "py-genlayer:latest" }
+﻿# { "Depends": "py-genlayer:latest" }
 
 import json
 import genlayer.gl as gl
@@ -37,21 +37,20 @@ LEAGUES = {
 
 
 class PredictionMarket(gl.Contract):
-    # ── Markets ──────────────────────────────────────────────────────────────
-    markets: TreeMap[str, str]                   # market_id → JSON
+    # ÔöÇÔöÇ Markets ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    markets: TreeMap[str, str]                   # market_id ÔåÆ JSON
     market_ids: DynArray[str]                    # ordered list of all market IDs
 
-    # ── Bets ─────────────────────────────────────────────────────────────────
-    bets: TreeMap[str, str]                      # bet_key → JSON
-    market_bet_keys: TreeMap[str, str]            # market_id → JSON array of bet_keys
-    user_bet_keys: TreeMap[str, str]              # user_hex → JSON array of bet_keys
+    # ÔöÇÔöÇ Bets ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    bets: TreeMap[str, str]                      # bet_key ÔåÆ JSON
+    market_bet_keys: TreeMap[str, str]            # market_id ÔåÆ JSON array of bet_keys
+    user_bet_keys: TreeMap[str, str]              # user_hex ÔåÆ JSON array of bet_keys
 
-    # ── Points / Leaderboard ─────────────────────────────────────────────────
-    points: TreeMap[str, u256]                    # user_hex → total correct predictions
+    # ÔöÇÔöÇ Points / Leaderboard ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    points: TreeMap[str, u256]                    # user_hex ÔåÆ total correct predictions
     scored_users: DynArray[str]                    # tracks users who have points
-    claimable_balances: TreeMap[str, u256]        # user_hex -> claimable GEN tokens (wei)
 
-    # ── Config ───────────────────────────────────────────────────────────────
+    # ÔöÇÔöÇ Config ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
     market_count: u256
 
     # =========================================================================
@@ -110,10 +109,6 @@ class PredictionMarket(gl.Contract):
             "home_bets": 0,
             "draw_bets": 0,
             "away_bets": 0,
-            "home_pool": 0,
-            "draw_pool": 0,
-            "away_pool": 0,
-            "total_pool": 0,
             "creator": str(gl.message.sender_address),
         })
 
@@ -140,17 +135,11 @@ class PredictionMarket(gl.Contract):
         if bet_key in self.bets:
             raise gl.vm.UserError("You already placed a bet on this market")
 
-        # In GenLayer, native value sent is gl.message.value
-        bet_amount = int(gl.message.value) if hasattr(gl.message, "value") else 0
-        if bet_amount <= 0:
-            raise gl.vm.UserError("Bet amount must be greater than 0")
-
         bet_data = json.dumps({
             "bet_id": bet_key,
             "prediction": prediction,
             "user": user_hex,
             "market_id": market_id,
-            "amount": bet_amount,
         })
         self.bets[bet_key] = bet_data
 
@@ -162,19 +151,14 @@ class PredictionMarket(gl.Contract):
         user_keys.append(bet_key)
         self.user_bet_keys[user_hex] = json.dumps(user_keys)
 
-        # Update market counters & pools
+        # Update market counters
         market["total_bets"] = market["total_bets"] + 1
-        market["total_pool"] = market["total_pool"] + bet_amount
         if prediction == "home":
             market["home_bets"] = market["home_bets"] + 1
-            market["home_pool"] = market["home_pool"] + bet_amount
         elif prediction == "draw":
             market["draw_bets"] = market["draw_bets"] + 1
-            market["draw_pool"] = market["draw_pool"] + bet_amount
         else:
             market["away_bets"] = market["away_bets"] + 1
-            market["away_pool"] = market["away_pool"] + bet_amount
-            
         self.markets[market_id] = json.dumps(market)
 
     @gl.public.write
@@ -199,31 +183,22 @@ class PredictionMarket(gl.Contract):
         search_query = f"{home_team} vs {away_team} {match_date} final score result"
         search_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
 
-        def fetch_data():
-            return gl.nondet.web.render(search_url, mode='text')[:8000]
-
-        task_prompt = (
-            f"From the provided web content, extract the final score of the football match "
-            f"between {home_team} and {away_team} played on {match_date}.\n\n"
-            f"Respond ONLY with a JSON object in this exact format, nothing else:\n"
-            f'{{"home_score": <integer>, "away_score": <integer>, "status": "finished"}}\n\n'
-            f"If the match has not been played yet, or the result is not found, respond:\n"
-            f'{{"status": "not_found"}}\n\n'
-            f"Rules:\n"
-            f"- home_score and away_score must be non-negative integers\n"
-            f"- Only extract results from completed, FINAL matches"
-        )
-
-        criteria_prompt = (
+        result_str = gl.eq_principle.prompt_non_comparative(
+            gl.nondet.exec_prompt(
+                f"From the following web content, extract the final score of the football match "
+                f"between {home_team} and {away_team} played on {match_date}.\n\n"
+                f"Respond ONLY with a JSON object in this exact format, nothing else:\n"
+                f'{{"home_score": <integer>, "away_score": <integer>, "status": "finished"}}\n\n'
+                f"If the match has not been played yet, or the result is not found, respond:\n"
+                f'{{"status": "not_found"}}\n\n'
+                f"Rules:\n"
+                f"- home_score and away_score must be non-negative integers\n"
+                f"- Only extract results from completed, FINAL matches\n\n"
+                f"Web content:\n{gl.nondet.web.render(search_url, mode='text')[:8000]}"
+            ),
             f"Does this JSON contain a valid football match score? "
             f"It must have 'home_score' and 'away_score' as non-negative integers. "
-            f"Accept if valid JSON with scores. Reject otherwise."
-        )
-
-        result_str = gl.eq_principle.prompt_non_comparative(
-            fetch_data,
-            task=task_prompt,
-            criteria=criteria_prompt,
+            f"Accept if valid JSON with scores. Reject otherwise.",
         )
 
         # --- Parse the validated result ---
@@ -256,70 +231,20 @@ class PredictionMarket(gl.Contract):
         market["away_score"] = away_score
         self.markets[market_id] = json.dumps(market)
 
-        # Award points and Auto-Payout to correct predictors
+        # Award points to correct predictors
         bet_keys_json = self.market_bet_keys.get(market_id, "[]")
         bet_keys = json.loads(bet_keys_json)
-        
-        total_pool = int(market["total_pool"])
-        winning_pool = 0
-        if outcome == "home": winning_pool = int(market["home_pool"])
-        elif outcome == "draw": winning_pool = int(market["draw_pool"])
-        else: winning_pool = int(market["away_pool"])
+
 
         for bk in bet_keys:
             if bk in self.bets:
                 bet = json.loads(self.bets[bk])
-                user = bet["user"]
-                
-                # If they won
                 if bet["prediction"] == outcome:
-                    # 1. Update Leaderboard Points
+                    user = bet["user"]
                     current_points = self.points.get(user, u256(0))
                     if current_points == u256(0):
                         self.scored_users.append(user)
                     self.points[user] = current_points + u256(1)
-                    
-                    # 2. Token Payout
-                    if winning_pool > 0 and total_pool > 0:
-                        bet_amount = int(bet.get("amount", 0))
-                        # Fractional share of the entire pool
-                        payout = (bet_amount * total_pool) // winning_pool
-                        if payout > 0:
-                            # Update claimable balance
-                            current_bal = int(self.claimable_balances.get(user, u256(0)))
-                            self.claimable_balances[user] = u256(current_bal + payout)
-                            
-                            # Auto-transfer using standard GenVM Address wrapper
-                            try:
-                                Address(user).transfer(payout)
-                            except Exception:
-                                pass
-                
-                # If no one won (winning pool is 0), refund everyone who bet
-                elif winning_pool == 0 and total_pool > 0:
-                    bet_amount = int(bet.get("amount", 0))
-                    if bet_amount > 0:
-                        current_bal = int(self.claimable_balances.get(user, u256(0)))
-                        self.claimable_balances[user] = u256(current_bal + bet_amount)
-                        try:
-                            Address(user).transfer(bet_amount)
-                        except Exception:
-                            pass
-
-    @gl.public.write
-    def claim_winnings(self):
-        user = str(gl.message.sender_address)
-        amount_u256 = self.claimable_balances.get(user, u256(0))
-        amount = int(amount_u256)
-        if amount <= 0:
-            raise gl.vm.UserError("No winnings to claim")
-        
-        self.claimable_balances[user] = u256(0)
-        try:
-            Address(user).transfer(amount)
-        except Exception:
-            self.claimable_balances[user] = amount_u256
-            raise gl.vm.UserError("Transfer failed")
 
     # =========================================================================
     # Read Methods (Views)

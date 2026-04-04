@@ -1,0 +1,35 @@
+﻿node.exe : [genlayer-js
+] initializeConsensusSm
+artContract() is deprec
+ated and will be remove
+d in a future release. 
+The consensus contract 
+is now resolved from th
+e static chain definiti
+on.
+At line:1 char:1
++ & "C:\Program Files\n
+odejs/node.exe" "C:\Pro
+gram Files\nodejs/node_
+mo ...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: ([genlayer-js]   
+  i...ain definitio    
+n.:String) [], Rem    o
+teException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+- [34mGetting schema f
+or contract at contract
+s/prediction_market.py.
+..[39m
+[31mÔ£û[39m [31mErro
+r retrieving contract s
+chema[39m
