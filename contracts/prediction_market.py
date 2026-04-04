@@ -79,13 +79,9 @@ class PredictionMarket(gl.Contract):
 
         teams = LEAGUES[league]["teams"]
 
-        if home_team not in teams:
+        if home_team not in teams and away_team not in teams:
             raise gl.vm.UserError(
-                f"{home_team} is not in the top 5 of {league}. Valid teams: {', '.join(teams)}"
-            )
-        if away_team not in teams:
-            raise gl.vm.UserError(
-                f"{away_team} is not in the top 5 of {league}. Valid teams: {', '.join(teams)}"
+                f"At least one team must be in the tracked top 5 of {league}. Tracked: {', '.join(teams)}"
             )
         if home_team == away_team:
             raise gl.vm.UserError("Home and away teams must be different")

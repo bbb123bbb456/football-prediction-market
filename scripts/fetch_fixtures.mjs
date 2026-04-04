@@ -43,8 +43,6 @@ function filterForOurTeams(matches, leagueSlug) {
 
     // Match must involve at least one of our teams
     if (!ourTeams.includes(home) && !ourTeams.includes(away)) continue;
-    // Both teams must be in our list
-    if (!ourTeams.includes(home) || !ourTeams.includes(away)) continue;
 
     const utcDate = match.utcDate?.split("T")[0]; // "2026-04-11"
     if (!utcDate) continue;
