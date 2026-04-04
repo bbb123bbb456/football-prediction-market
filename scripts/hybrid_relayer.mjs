@@ -3,6 +3,12 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { createClient } from 'genlayer-js';
 import { testnetBradbury } from 'genlayer-js/chains';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '.env.cron') });
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
