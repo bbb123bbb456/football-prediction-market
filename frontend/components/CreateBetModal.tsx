@@ -11,7 +11,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 
 export function CreateBetModal() {
-  const { isConnected, address, isLoading } = useWallet();
+  const { isConnected, address, isConnecting } = useWallet();
   const { createBet, isCreating, isSuccess } = useCreateBet();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -109,7 +109,7 @@ export function CreateBetModal() {
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="gradient" disabled={!isConnected || !address || isLoading}>
+        <Button variant="gradient" disabled={!isConnected || !address || isConnecting}>
           <Plus className="w-4 h-4 mr-2" />
           Create Bet
         </Button>

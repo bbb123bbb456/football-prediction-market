@@ -12,7 +12,7 @@ import type { Bet } from "@/lib/contracts/types";
 export function BetsTable() {
   const contract = useFootballBetsContract();
   const { data: bets, isLoading, isError } = useBets();
-  const { address, isConnected, isLoading: isWalletLoading } = useWallet();
+  const { address, isConnected, isConnecting: isWalletLoading } = useWallet();
   const { resolveBet, isResolving, resolvingBetId } = useResolveBet();
 
   const handleResolve = (betId: string) => {
@@ -114,7 +114,7 @@ export function BetsTable() {
               <BetRow
                 key={bet.id}
                 bet={bet}
-                currentAddress={address}
+                currentAddress={address ?? null}
                 isConnected={isConnected}
                 isWalletLoading={isWalletLoading}
                 onResolve={handleResolve}
