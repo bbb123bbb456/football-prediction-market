@@ -89,7 +89,7 @@ class PredictionMarket(gl.Contract):
 
         market_id = f"{league}_{home_team}_{away_team}_{match_date}".replace(" ", "_").lower()
 
-        if market_id in self.markets:
+        if self.markets.get(market_id, "") != "":
             raise gl.vm.UserError(f"Market already exists: {market_id}")
 
         market_data = json.dumps({
@@ -120,14 +120,15 @@ class PredictionMarket(gl.Contract):
         m_ids.append(market_id)
         self.market_ids_json = json.dumps(m_ids)
         
-        self.market_count = self.market_count + u256(1)
+        self.market_count = u256(int(self.market_count) + 1)
 
     @gl.public.write
     def place_bet(self, market_id: str, prediction: str, amount_str: str):
-        if market_id not in self.markets:
+        market_raw = self.markets.get(market_id, "")
+        if market_raw == "":
             raise gl.vm.UserError(f"Market not found: {market_id}")
 
-        market = json.loads(self.markets[market_id])
+        market = json.loads(market_raw)
 
         if market["status"] != "open":
             raise gl.vm.UserError(f"Market is not open. Current status: {market['status']}")
@@ -138,7 +139,7 @@ class PredictionMarket(gl.Contract):
         user_hex = str(gl.message.sender_address)
         bet_key = f"{market_id}:{user_hex}"
 
-        if bet_key in self.bets:
+        if self.bets.get(bet_key, "") != "":
             raise gl.vm.UserError("You already placed a bet on this market")
 
         bet_amount = int(amount_str)
@@ -183,10 +184,11 @@ class PredictionMarket(gl.Contract):
         Intelligent Oracle: fetches match result from web, parses with LLM,
         uses Equivalence Principle for consensus, awards points to winners.
         """
-        if market_id not in self.markets:
+        market_raw = self.markets.get(market_id, "")
+        if market_raw == "":
             raise gl.vm.UserError(f"Market not found: {market_id}")
 
-        market = json.loads(self.markets[market_id])
+        market = json.loads(market_raw)
 
         if market["status"] != "open":
             raise gl.vm.UserError("Market is already resolved")
@@ -267,8 +269,9 @@ class PredictionMarket(gl.Contract):
         else: winning_pool = int(market["away_pool"])
 
         for bk in bet_keys:
-            if bk in self.bets:
-                bet = json.loads(self.bets[bk])
+            bet_raw = self.bets.get(bk, "")
+            if bet_raw != "":
+                bet = json.loads(bet_raw)
                 user = bet["user"]
                 
                 # If they won
@@ -315,16 +318,19 @@ class PredictionMarket(gl.Contract):
 
     @gl.public.view
     def get_market(self, market_id: str) -> str:
-        if market_id not in self.markets:
+        raw = self.markets.get(market_id, "")
+        if raw == "":
             return json.dumps({"error": "Market not found"})
-        return self.markets[market_id]
+        return raw
 
     @gl.public.view
     def get_all_markets(self) -> str:
         result = []
         m_ids = json.loads(self.market_ids_json)
         for mid in m_ids:
-            result.append(json.loads(self.markets[mid]))
+            raw = self.markets.get(mid, "")
+            if raw != "":
+                result.append(json.loads(raw))
         return json.dumps(result)
 
     @gl.public.view
@@ -332,9 +338,11 @@ class PredictionMarket(gl.Contract):
         result = []
         m_ids = json.loads(self.market_ids_json)
         for mid in m_ids:
-            market = json.loads(self.markets[mid])
-            if market["league"] == league:
-                result.append(market)
+            raw = self.markets.get(mid, "")
+            if raw != "":
+                market = json.loads(raw)
+                if market["league"] == league:
+                    result.append(market)
         return json.dumps(result)
 
     @gl.public.view
@@ -342,9 +350,11 @@ class PredictionMarket(gl.Contract):
         result = []
         m_ids = json.loads(self.market_ids_json)
         for mid in m_ids:
-            market = json.loads(self.markets[mid])
-            if market["status"] == "open":
-                result.append(market)
+            raw = self.markets.get(mid, "")
+            if raw != "":
+                market = json.loads(raw)
+                if market["status"] == "open":
+                    result.append(market)
         return json.dumps(result)
 
     @gl.public.view
@@ -353,10 +363,12 @@ class PredictionMarket(gl.Contract):
         user_keys = json.loads(user_keys_json)
         result = []
         for bk in user_keys:
-            if bk in self.bets:
-                bet = json.loads(self.bets[bk])
-                if bet["market_id"] in self.markets:
-                    market = json.loads(self.markets[bet["market_id"]])
+            bet_raw = self.bets.get(bk, "")
+            if bet_raw != "":
+                bet = json.loads(bet_raw)
+                market_raw = self.markets.get(bet["market_id"], "")
+                if market_raw != "":
+                    market = json.loads(market_raw)
                     bet["market"] = market
                     if market["status"] == "resolved":
                         bet["result"] = "won" if bet["prediction"] == market["outcome"] else "lost"
