@@ -11,7 +11,7 @@ export function CreateMarketModal() {
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
   const [matchDate, setMatchDate] = useState("");
-  const { createMarket, isCreating } = useCreateMarket();
+  const { createMarketAsync, isCreating } = useCreateMarket();
   const { address } = useWallet();
 
   const teams = LEAGUES[league].teams;
@@ -19,10 +19,9 @@ export function CreateMarketModal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!homeTeam || !awayTeam || !matchDate || homeTeam === awayTeam) return;
-    await createMarket(
-      { league, homeTeam, awayTeam, matchDate },
-      { onSuccess: () => { setOpen(false); resetForm(); } }
-    );
+    await createMarketAsync({ league, homeTeam, awayTeam, matchDate });
+    setOpen(false);
+    resetForm();
   };
 
   const resetForm = () => {

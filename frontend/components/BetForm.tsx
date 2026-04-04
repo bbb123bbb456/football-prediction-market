@@ -20,7 +20,7 @@ const OPTIONS: { value: PredictionType; label: string; color: string; icon: stri
 export function BetForm({ market }: BetFormProps) {
   const [selected, setSelected] = useState<PredictionType | null>(null);
   const [amount, setAmount] = useState<string>("");
-  const { placeBet, isPlacing } = usePlaceBet();
+  const { placeBetAsync, isPlacing } = usePlaceBet();
   const { data: balance, isLoading: isBalanceLoading } = useBalance();
 
   const numAmount = parseFloat(amount);
@@ -28,10 +28,12 @@ export function BetForm({ market }: BetFormProps) {
   const isInvalidAmount = isNaN(numAmount) || numAmount <= 0;
   const isInsufficientFunds = !isInvalidAmount && numAmount > numBalance;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selected || isInvalidAmount || isInsufficientFunds) return;
-    placeBet({ marketId: market.market_id, prediction: selected, amount });
+    await placeBetAsync({ marketId: market.market_id, prediction: selected, amount });
+    setSelected(null);
+    setAmount("");
   };
 
   return (
