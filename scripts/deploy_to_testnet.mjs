@@ -39,7 +39,7 @@ async function main() {
   });
 
   log(`✅ Contract successfully deployed to Bradbury!`);
-  log(`🎯 Contract Address: ${receipt.contractAddress}`);
+  log(`🎯 Contract Address: ${receipt.txDataDecoded?.contractAddress || receipt.contractAddress || "unknown (check block explorer)"}`);
 }
 
 main().catch(err => {
