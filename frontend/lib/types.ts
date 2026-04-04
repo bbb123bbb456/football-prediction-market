@@ -18,6 +18,7 @@ export interface Market {
   draw_bets: number;
   away_bets: number;
   creator: string;
+  genlayer_hash?: string;
 }
 
 export interface Bet {

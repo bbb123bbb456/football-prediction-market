@@ -51,8 +51,12 @@ export const predictionMarketAbi = [
     "type": "function"
   },
   {
-    "inputs": [{"internalType": "string", "name": "_id", "type": "string"}],
-    "name": "requestResolution",
+    "inputs": [
+      {"internalType": "string", "name": "_id", "type": "string"},
+      {"internalType": "uint8", "name": "_result", "type": "uint8"},
+      {"internalType": "string", "name": "_genlayerTxHash", "type": "string"}
+    ],
+    "name": "submitResult",
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -79,7 +83,8 @@ export const predictionMarketAbi = [
           {"internalType": "uint256", "name": "homePool", "type": "uint256"},
           {"internalType": "uint256", "name": "awayPool", "type": "uint256"},
           {"internalType": "uint256", "name": "drawPool", "type": "uint256"},
-          {"internalType": "uint256", "name": "totalPool", "type": "uint256"}
+          {"internalType": "uint256", "name": "totalPool", "type": "uint256"},
+          {"internalType": "string", "name": "genlayerTxHash", "type": "string"}
         ],
         "internalType": "struct FootballPredictionMarket.Market[]",
         "name": "",

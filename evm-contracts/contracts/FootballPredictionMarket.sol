@@ -18,6 +18,7 @@ contract FootballPredictionMarket is Ownable, ReentrancyGuard {
         uint256 awayPool;
         uint256 drawPool;
         uint256 totalPool;
+        string genlayerTxHash;
     }
 
     mapping(string => Market) public markets;
@@ -68,7 +69,8 @@ contract FootballPredictionMarket is Ownable, ReentrancyGuard {
             homePool: 0,
             awayPool: 0,
             drawPool: 0,
-            totalPool: 0
+            totalPool: 0,
+            genlayerTxHash: ""
         });
         
         allMarketIds.push(_id);
@@ -105,10 +107,12 @@ contract FootballPredictionMarket is Ownable, ReentrancyGuard {
     }
 
     // Called by the relayer script listening to GenLayer
-    function submitResult(string memory _id, uint8 _result) external onlyRelayer {
+    function submitResult(string memory _id, uint8 _result, string memory _genlayerTxHash) external onlyRelayer {
         Market storage market = markets[_id];
         require(market.state == MarketState.RESOLVING || market.state == MarketState.OPEN, "Invalid state");
         require(_result <= 3, "Invalid result (0=H, 1=A, 2=D, 3=CANCELED)");
+        
+        market.genlayerTxHash = _genlayerTxHash;
         
         if (_result == 0) market.state = MarketState.RESOLVED_HOME;
         else if (_result == 1) market.state = MarketState.RESOLVED_AWAY;

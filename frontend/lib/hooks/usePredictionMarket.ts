@@ -27,7 +27,8 @@ function mapEvmMarket(evmMarket: any): Market {
     draw_bets: Number(evmMarket.drawPool) / 1e18,
     total_bets: Number(evmMarket.totalPool) / 1e18,
     outcome: evmMarket.state === 2 ? "home" : evmMarket.state === 3 ? "away" : evmMarket.state === 4 ? "draw" : null,
-    creator: ""
+    creator: "",
+    genlayer_hash: evmMarket.genlayerTxHash || undefined
   };
 }
 
@@ -44,7 +45,7 @@ export function useAllMarkets() {
     }
   });
 
-  const markets = data ? (data as any[]).map(mapEvmMarket) : (STATIC_FIXTURES as unknown as Market[]);
+  const markets = data ? (data as any[]).map(mapEvmMarket) : [];
   return { data: markets, isLoading, refetch };
 }
 
@@ -56,7 +57,7 @@ export function useMarket(marketId: string | null) {
 
 export function useMarketsByLeague(league: string | null) {
   const { data } = useAllMarkets();
-  const markets = data?.filter(m => m.league.toLowerCase() === league?.toLowerCase()) || getStaticByLeague(league || "");
+  const markets = data?.filter(m => m.league.toLowerCase() === league?.toLowerCase()) || [];
   return { data: markets as Market[], isLoading: !data };
 }
 

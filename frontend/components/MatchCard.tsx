@@ -73,8 +73,8 @@ export function MatchCard({ market, showLeague = false, locked = false }: MatchC
             </div>
             <div className="flex flex-col items-center shrink-0">
               {market.status === "resolved" ? (
-                <div className="text-2xl font-black tracking-tighter">
-                  {market.home_score} – {market.away_score}
+                <div className="text-sm font-black tracking-widest text-white/50 border border-white/10 px-3 py-1 rounded-lg">
+                  FINISHED
                 </div>
               ) : (
                 <div className="text-lg font-bold text-muted-foreground">vs</div>

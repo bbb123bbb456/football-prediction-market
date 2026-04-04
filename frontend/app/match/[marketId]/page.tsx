@@ -19,7 +19,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ marketId
   const { marketId } = use(params);
   const decodedId = decodeURIComponent(marketId);
   const { data: market, isLoading } = useMarket(decodedId);
-  const { resolveMarket, isResolving, resolvingMarketId } = useResolveMarket();
+  const { resolveMarketAsync, isResolving } = useResolveMarket();
   const { address } = useWallet();
 
   if (isLoading) {
@@ -105,8 +105,8 @@ export default function MatchDetailPage({ params }: { params: Promise<{ marketId
                 </div>
                 <div className="text-center shrink-0">
                   {market.status === "resolved" ? (
-                    <div className="text-4xl md:text-5xl font-black tracking-tighter">
-                      {market.home_score} <span className="text-muted-foreground">–</span> {market.away_score}
+                    <div className="text-xl md:text-2xl font-black tracking-widest text-white/50 border border-white/10 px-4 py-2 rounded-xl">
+                      FINISHED
                     </div>
                   ) : (
                     <div className="text-3xl font-bold text-muted-foreground">VS</div>
@@ -162,11 +162,11 @@ export default function MatchDetailPage({ params }: { params: Promise<{ marketId
                     <div className="mt-4 pt-4 border-t border-white/10">
                       <p className="text-xs text-muted-foreground mb-2">Match date has passed. You can resolve this market:</p>
                       <button
-                        onClick={() => resolveMarket(market.market_id)}
-                        disabled={isResolving && resolvingMarketId === market.market_id}
+                        onClick={() => resolveMarketAsync(market.market_id)}
+                        disabled={isResolving}
                         className="w-full py-2.5 rounded-xl text-sm font-semibold border border-accent/40 text-accent hover:bg-accent/10 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                       >
-                        {isResolving && resolvingMarketId === market.market_id ? (
+                        {isResolving ? (
                           <>
                             <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -200,6 +200,25 @@ export default function MatchDetailPage({ params }: { params: Promise<{ marketId
                       <span className="font-bold">{market.total_bets}</span>
                     </div>
                   </div>
+                  
+                  {market.genlayer_hash && (
+                     <div className="flex justify-between mt-6 p-4 bg-black/40 rounded-xl border border-white/10 items-center">
+                       <div className="flex flex-col">
+                         <span className="text-xs text-muted-foreground mb-1">Oracle Trace Proof</span>
+                         <span className="text-xs font-mono text-white/50 truncate max-w-[120px] md:max-w-[200px]">
+                           {market.genlayer_hash}
+                         </span>
+                       </div>
+                       <a 
+                         href={`https://studio.genlayer.com/transactions/${market.genlayer_hash}`}
+                         target="_blank" 
+                         rel="noreferrer"
+                         className="text-xs px-3 py-1.5 bg-accent/20 text-accent font-semibold rounded hover:bg-accent/30 transition-colors"
+                       >
+                         GenLayer Studio ↗
+                       </a>
+                     </div>
+                  )}
                 </div>
               )}
             </div>

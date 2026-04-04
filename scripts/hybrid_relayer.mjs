@@ -17,8 +17,8 @@ if (!PRIVATE_KEY || !EVM_CONTRACT || !ORACLE_CONTRACT) {
 
 // Minimal ABI required for Relay
 const marketAbi = parseAbi([
-  "function getAllMarkets() external view returns (tuple(string id, string league, string homeTeam, string awayTeam, uint256 matchTimestamp, uint8 state, uint256 homePool, uint256 awayPool, uint256 drawPool, uint256 totalPool)[])",
-  "function submitResult(string _id, uint8 _result) external"
+  "function getAllMarkets() external view returns (tuple(string id, string league, string homeTeam, string awayTeam, uint256 matchTimestamp, uint8 state, uint256 homePool, uint256 awayPool, uint256 drawPool, uint256 totalPool, string genlayerTxHash)[])",
+  "function submitResult(string _id, uint8 _result, string _genlayerTxHash) external"
 ]);
 
 async function main() {
@@ -101,7 +101,7 @@ async function main() {
                 address: EVM_CONTRACT,
                 abi: marketAbi,
                 functionName: 'submitResult',
-                args: [market.id, result],
+                args: [market.id, result, hash],
                 account
             });
             const tx = await walletClient.writeContract(request);
