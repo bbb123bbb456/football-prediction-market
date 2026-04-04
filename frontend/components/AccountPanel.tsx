@@ -56,12 +56,10 @@ export function AccountPanel() {
   if (!isConnected) {
     return (
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogTrigger asChild>
-          <Button variant="gradient" disabled={isConnecting}>
-            <User className="w-4 h-4 mr-2" />
-            Connect Wallet
-          </Button>
-        </DialogTrigger>
+        <Button variant="gradient" disabled={isConnecting} onClick={() => setIsModalOpen(true)}>
+          <User className="w-4 h-4 mr-2" />
+          Connect Wallet
+        </Button>
         <DialogContent className="brand-card border-2">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
@@ -134,11 +132,9 @@ export function AccountPanel() {
           </div>
         </div>
 
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            <User className="w-4 h-4" />
-          </Button>
-        </DialogTrigger>
+        <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>
+          <User className="w-4 h-4" />
+        </Button>
       </div>
 
       <DialogContent className="brand-card border-2">
