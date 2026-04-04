@@ -46,35 +46,45 @@ async function resolveMarket(client, market) {
   log(`     → GenLayer AI Oracle will search Google for the real score`);
   log(`     → Validators will verify via Equivalence Principle`);
 
-  try {
-    const txHash = await client.writeContract({
-      address: CONTRACT_ADDRESS,
-      functionName: "resolve_market",
-      args: [market_id],
-      value: BigInt(0),
-    });
+  let retriesLeft = 5;
+  while (retriesLeft > 0) {
+    try {
+      const txHash = await client.writeContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "resolve_market",
+        args: [market_id],
+        value: BigInt(0),
+      });
 
-    log(`     → Transaction sent: ${txHash}`);
-    log(`     → Waiting for AI Oracle consensus (this may take 1-3 minutes)...`);
+      log(`     → Transaction sent: ${txHash}`);
+      log(`     → Waiting for AI Oracle consensus (this may take 1-3 minutes)...`);
 
-    const receipt = await client.waitForTransactionReceipt({
-      hash: txHash,
-      status: "ACCEPTED",
-      retries: 200,      // long wait — oracle needs time
-      interval: 10000,   // check every 10s
-    });
+      const receipt = await client.waitForTransactionReceipt({
+        hash: txHash,
+        status: "ACCEPTED",
+        retries: 200,      // long wait — oracle needs time
+        interval: 10000,   // check every 10s
+      });
 
-    log(`  ✅ RESOLVED ON-CHAIN: ${home_team} vs ${away_team}`);
-    log(`     Transaction status: ${receipt.statusName || receipt.status}`);
-    return true;
-  } catch (err) {
-    if (err.message?.includes("not available yet")) {
-      log(`  ⏳ Score not yet available for ${home_team} vs ${away_team} — will retry later`);
-    } else {
-      log(`  ⚠️ Resolution failed: ${err.message?.slice(0, 150)}`);
+      log(`  ✅ RESOLVED ON-CHAIN: ${home_team} vs ${away_team}`);
+      log(`     Transaction status: ${receipt.statusName || receipt.status}`);
+      return true;
+    } catch (err) {
+      if (err.message?.includes("not available yet")) {
+        log(`  ⏳ Score not yet available for ${home_team} vs ${away_team} — will retry later`);
+        return false;
+      } else {
+        retriesLeft--;
+        log(`  ⚠️ Resolution failed (${err.message?.slice(0, 80)}). Retries left: ${retriesLeft}`);
+        if (retriesLeft > 0) {
+          log(`  ⏳ Waiting 30s before retrying resolution...`);
+          await new Promise(r => setTimeout(r, 30000));
+        }
+      }
     }
-    return false;
   }
+  log(`  ❌ Exhausted all retries for resolving ${market_id}`);
+  return false;
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────

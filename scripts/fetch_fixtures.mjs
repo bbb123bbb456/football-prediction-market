@@ -81,27 +81,36 @@ async function createMarket(client, fixture) {
   const { league, home, away, date } = fixture;
   log(`  Creating market: ${home} vs ${away} (${date}) [${league}]`);
 
-  try {
-    const txHash = await client.writeContract({
-      address: CONTRACT_ADDRESS,
-      functionName: "create_market",
-      args: [league, home, away, date],
-      value: BigInt(0),
-    });
+  let retriesLeft = 5;
+  while (retriesLeft > 0) {
+    try {
+      const txHash = await client.writeContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "create_market",
+        args: [league, home, away, date],
+        value: BigInt(0),
+      });
 
-    await client.waitForTransactionReceipt({
-      hash: txHash,
-      status: "ACCEPTED",
-      retries: 120,
-      interval: 5000,
-    });
+      await client.waitForTransactionReceipt({
+        hash: txHash,
+        status: "ACCEPTED",
+        retries: 150, // 150 * 4s = 10 minutes wait per attempt
+        interval: 4000,
+      });
 
-    log(`  ✅ Market created: ${home} vs ${away}`);
-    return true;
-  } catch (err) {
-    log(`  ⚠️ Failed: ${err.message?.slice(0, 100)}`);
-    return false;
+      log(`  ✅ Market created: ${home} vs ${away}`);
+      return true;
+    } catch (err) {
+      retriesLeft--;
+      log(`  ⚠️ Failed/Stuck (${err.message?.slice(0, 80)}). Retries left: ${retriesLeft}`);
+      if (retriesLeft > 0) {
+        log(`  ⏳ Waiting 15 seconds before trying again...`);
+        await new Promise(r => setTimeout(r, 15000));
+      }
+    }
   }
+  log(`  ❌ Exhausted all retries for ${home} vs ${away}`);
+  return false;
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
