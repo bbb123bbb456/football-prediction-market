@@ -5,19 +5,21 @@ import { studionet } from "genlayer-js/chains";
 import { createWalletClient, custom, type WalletClient } from "viem";
 
 // GenLayer Network Configuration (from environment variables with fallbacks)
-export const GENLAYER_CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_GENLAYER_CHAIN_ID || "61999");
+// 4221 is the Bradbury Testnet ID
+export const GENLAYER_CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_GENLAYER_CHAIN_ID || "4221");
 export const GENLAYER_CHAIN_ID_HEX = `0x${GENLAYER_CHAIN_ID.toString(16).toUpperCase()}`;
 
 export const GENLAYER_NETWORK = {
   chainId: GENLAYER_CHAIN_ID_HEX,
-  chainName: process.env.NEXT_PUBLIC_GENLAYER_CHAIN_NAME || "GenLayer Studio",
+  chainName: process.env.NEXT_PUBLIC_GENLAYER_CHAIN_NAME || "Bradbury Testnet",
   nativeCurrency: {
     name: process.env.NEXT_PUBLIC_GENLAYER_SYMBOL || "GEN",
     symbol: process.env.NEXT_PUBLIC_GENLAYER_SYMBOL || "GEN",
     decimals: 18,
   },
-  rpcUrls: [process.env.NEXT_PUBLIC_GENLAYER_RPC_URL || "https://studio.genlayer.com/api"],
-  blockExplorerUrls: [],
+  // Metamask requires the EVM RPC, not the GenVM RPC
+  rpcUrls: [process.env.NEXT_PUBLIC_GENLAYER_EVM_RPC_URL || "https://zksync-os-testnet-genlayer.zksync.dev"],
+  blockExplorerUrls: ["https://explorer-bradbury.genlayer.com"],
 };
 
 // Ethereum provider type from window
@@ -38,8 +40,9 @@ declare global {
  * Get the GenLayer RPC URL from environment variables
  */
 export function getStudioUrl(): string {
+  // genlayer-js requires the GenVM RPC
   return (
-    process.env.NEXT_PUBLIC_GENLAYER_RPC_URL || "https://studio.genlayer.com/api"
+    process.env.NEXT_PUBLIC_GENLAYER_RPC_URL || "https://rpc-bradbury.genlayer.com"
   );
 }
 
