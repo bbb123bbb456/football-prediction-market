@@ -57,14 +57,6 @@ class PredictionMarket(gl.Contract):
     # Constructor
     # =========================================================================
     def __init__(self) -> None:
-        self.markets = TreeMap()
-        self.market_ids = DynArray()
-        self.bets = TreeMap()
-        self.market_bet_keys = TreeMap()
-        self.user_bet_keys = TreeMap()
-        self.points = TreeMap()
-        self.scored_users = DynArray()
-        self.claimable_balances = TreeMap()
         self.market_count = u256(0)
 
     # =========================================================================
