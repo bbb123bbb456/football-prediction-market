@@ -57,6 +57,12 @@ class PredictionMarket(gl.Contract):
     # Constructor
     # =========================================================================
     def __init__(self) -> None:
+        self.markets = TreeMap()
+        self.bets = TreeMap()
+        self.market_bet_keys = TreeMap()
+        self.user_bet_keys = TreeMap()
+        self.points = TreeMap()
+        self.claimable_balances = TreeMap()
         self.market_ids_json = "[]"
         self.scored_users_json = "[]"
         self.market_count = u256(0)
@@ -112,13 +118,13 @@ class PredictionMarket(gl.Contract):
             "away_pool": 0,
             "total_pool": 0,
             "creator": str(gl.message.sender_address),
-        })
+        }, sort_keys=True)
 
         self.markets[market_id] = market_data
         
         m_ids = json.loads(self.market_ids_json)
         m_ids.append(market_id)
-        self.market_ids_json = json.dumps(m_ids)
+        self.market_ids_json = json.dumps(m_ids, sort_keys=True)
         
         self.market_count = u256(int(self.market_count) + 1)
 
@@ -133,7 +139,7 @@ class PredictionMarket(gl.Contract):
         if market["status"] != "open":
             raise gl.vm.UserError(f"Market is not open. Current status: {market['status']}")
 
-        if prediction not in ("home", "draw", "away"):
+        if prediction != "home" and prediction != "draw" and prediction != "away":
             raise gl.vm.UserError("Prediction must be 'home', 'draw', or 'away'")
 
         user_hex = str(gl.message.sender_address)
@@ -152,16 +158,16 @@ class PredictionMarket(gl.Contract):
             "user": user_hex,
             "market_id": market_id,
             "amount": bet_amount,
-        })
+        }, sort_keys=True)
         self.bets[bet_key] = bet_data
 
         existing_keys = json.loads(self.market_bet_keys.get(market_id, "[]"))
         existing_keys.append(bet_key)
-        self.market_bet_keys[market_id] = json.dumps(existing_keys)
+        self.market_bet_keys[market_id] = json.dumps(existing_keys, sort_keys=True)
 
         user_keys = json.loads(self.user_bet_keys.get(user_hex, "[]"))
         user_keys.append(bet_key)
-        self.user_bet_keys[user_hex] = json.dumps(user_keys)
+        self.user_bet_keys[user_hex] = json.dumps(user_keys, sort_keys=True)
 
         # Update market counters & pools
         market["total_bets"] = market["total_bets"] + 1
@@ -176,7 +182,7 @@ class PredictionMarket(gl.Contract):
             market["away_bets"] = market["away_bets"] + 1
             market["away_pool"] = market["away_pool"] + bet_amount
             
-        self.markets[market_id] = json.dumps(market)
+        self.markets[market_id] = json.dumps(market, sort_keys=True)
 
     @gl.public.write
     def resolve_market(self, market_id: str):
@@ -256,7 +262,7 @@ class PredictionMarket(gl.Contract):
         market["outcome"] = outcome
         market["home_score"] = home_score
         market["away_score"] = away_score
-        self.markets[market_id] = json.dumps(market)
+        self.markets[market_id] = json.dumps(market, sort_keys=True)
 
         # Award points and Auto-Payout to correct predictors
         bet_keys_json = self.market_bet_keys.get(market_id, "[]")
@@ -282,8 +288,8 @@ class PredictionMarket(gl.Contract):
                         s_users = json.loads(self.scored_users_json)
                         if user not in s_users:
                             s_users.append(user)
-                            self.scored_users_json = json.dumps(s_users)
-                    self.points[user] = current_points + u256(1)
+                            self.scored_users_json = json.dumps(s_users, sort_keys=True)
+                    self.points[user] = u256(int(current_points) + 1)
                     
                     # 2. Token Payout
                     if winning_pool > 0 and total_pool > 0:
@@ -291,15 +297,15 @@ class PredictionMarket(gl.Contract):
                         # Fractional share of the entire pool
                         payout = (bet_amount * total_pool) // winning_pool
                         if payout > 0:
-                            current_bal = int(self.claimable_balances.get(user, u256(0)))
-                            self.claimable_balances[user] = u256(current_bal + payout)
+                            current_bal = self.claimable_balances.get(user, u256(0))
+                            self.claimable_balances[user] = u256(int(current_bal) + payout)
                 
                 # If no one won (winning pool is 0), refund everyone who bet
                 elif winning_pool == 0 and total_pool > 0:
                     bet_amount = int(bet.get("amount", 0))
                     if bet_amount > 0:
-                        current_bal = int(self.claimable_balances.get(user, u256(0)))
-                        self.claimable_balances[user] = u256(current_bal + bet_amount)
+                        current_bal = self.claimable_balances.get(user, u256(0))
+                        self.claimable_balances[user] = u256(int(current_bal) + bet_amount)
 
     @gl.public.write
     def claim_winnings(self):
@@ -320,7 +326,7 @@ class PredictionMarket(gl.Contract):
     def get_market(self, market_id: str) -> str:
         raw = self.markets.get(market_id, "")
         if raw == "":
-            return json.dumps({"error": "Market not found"})
+            return json.dumps({"error": "Market not found"}, sort_keys=True)
         return raw
 
     @gl.public.view
@@ -331,7 +337,7 @@ class PredictionMarket(gl.Contract):
             raw = self.markets.get(mid, "")
             if raw != "":
                 result.append(json.loads(raw))
-        return json.dumps(result)
+        return json.dumps(result, sort_keys=True)
 
     @gl.public.view
     def get_markets_by_league(self, league: str) -> str:
@@ -343,7 +349,7 @@ class PredictionMarket(gl.Contract):
                 market = json.loads(raw)
                 if market["league"] == league:
                     result.append(market)
-        return json.dumps(result)
+        return json.dumps(result, sort_keys=True)
 
     @gl.public.view
     def get_live_matches(self) -> str:
@@ -355,7 +361,7 @@ class PredictionMarket(gl.Contract):
                 market = json.loads(raw)
                 if market["status"] == "open":
                     result.append(market)
-        return json.dumps(result)
+        return json.dumps(result, sort_keys=True)
 
     @gl.public.view
     def get_user_bets(self, user_address: str) -> str:
@@ -375,7 +381,7 @@ class PredictionMarket(gl.Contract):
                     else:
                         bet["result"] = "pending"
                 result.append(bet)
-        return json.dumps(result)
+        return json.dumps(result, sort_keys=True)
 
     @gl.public.view
     def get_leaderboard(self) -> str:
@@ -392,7 +398,7 @@ class PredictionMarket(gl.Contract):
         entries.sort(key=lambda e: e["points"], reverse=True)
         for i, e in enumerate(entries):
             e["rank"] = i + 1
-        return json.dumps(entries)
+        return json.dumps(entries, sort_keys=True)
 
     @gl.public.view
     def get_user_points(self, user: str) -> int:
@@ -400,7 +406,7 @@ class PredictionMarket(gl.Contract):
 
     @gl.public.view
     def get_leagues(self) -> str:
-        return json.dumps(LEAGUES)
+        return json.dumps(LEAGUES, sort_keys=True)
 
     @gl.public.view
     def get_market_count(self) -> int:
