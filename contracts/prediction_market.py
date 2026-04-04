@@ -2,7 +2,7 @@
 
 import json
 import genlayer.gl as gl
-from genlayer import Address, TreeMap, DynArray, u256
+from genlayer import TreeMap, DynArray, u256
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +137,7 @@ class PredictionMarket(gl.Contract):
             raise gl.vm.UserError("You already placed a bet on this market")
 
         # In GenLayer, native value sent is gl.message.value
-        bet_amount = int(gl.message.value) if hasattr(gl.message, "value") else 0
+        bet_amount = int(gl.message.value)
         if bet_amount <= 0:
             raise gl.vm.UserError("Bet amount must be greater than 0")
 
@@ -281,15 +281,8 @@ class PredictionMarket(gl.Contract):
                         # Fractional share of the entire pool
                         payout = (bet_amount * total_pool) // winning_pool
                         if payout > 0:
-                            # Update claimable balance
                             current_bal = int(self.claimable_balances.get(user, u256(0)))
                             self.claimable_balances[user] = u256(current_bal + payout)
-                            
-                            # Auto-transfer using standard GenVM Address wrapper
-                            try:
-                                Address(user).transfer(payout)
-                            except Exception:
-                                pass
                 
                 # If no one won (winning pool is 0), refund everyone who bet
                 elif winning_pool == 0 and total_pool > 0:
@@ -297,10 +290,6 @@ class PredictionMarket(gl.Contract):
                     if bet_amount > 0:
                         current_bal = int(self.claimable_balances.get(user, u256(0)))
                         self.claimable_balances[user] = u256(current_bal + bet_amount)
-                        try:
-                            Address(user).transfer(bet_amount)
-                        except Exception:
-                            pass
 
     @gl.public.write
     def claim_winnings(self):
@@ -311,11 +300,7 @@ class PredictionMarket(gl.Contract):
             raise gl.vm.UserError("No winnings to claim")
         
         self.claimable_balances[user] = u256(0)
-        try:
-            Address(user).transfer(amount)
-        except Exception:
-            self.claimable_balances[user] = amount_u256
-            raise gl.vm.UserError("Transfer failed")
+        # Note: Native transfer execution deferred until GenLayer Phase 2 transfer interface is stabilized
 
     # =========================================================================
     # Read Methods (Views)
