@@ -1,8 +1,7 @@
 # { "Depends": "py-genlayer:latest" }
 
+from genlayer import *
 import json
-import genlayer.gl as gl
-from genlayer import TreeMap, DynArray, u256
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +117,7 @@ class PredictionMarket(gl.Contract):
         self.market_count = self.market_count + u256(1)
 
     @gl.public.write
-    def place_bet(self, market_id: str, prediction: str):
+    def place_bet(self, market_id: str, prediction: str, amount_str: str):
         if market_id not in self.markets:
             raise gl.vm.UserError(f"Market not found: {market_id}")
 
@@ -136,8 +135,7 @@ class PredictionMarket(gl.Contract):
         if bet_key in self.bets:
             raise gl.vm.UserError("You already placed a bet on this market")
 
-        # In GenLayer, native value sent is gl.message.value
-        bet_amount = int(gl.message.value)
+        bet_amount = int(amount_str)
         if bet_amount <= 0:
             raise gl.vm.UserError("Bet amount must be greater than 0")
 

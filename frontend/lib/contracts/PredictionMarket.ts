@@ -92,7 +92,10 @@ class PredictionMarket {
   }
 
   async placeBet(marketId: string, prediction: string, amount: string): Promise<any> {
-    return this.write("place_bet", [marketId, prediction], { value: parseEther(amount) });
+    const weiAmountStr = parseEther(amount).toString();
+    
+    // We pass weiAmountStr into the GenVM argument list directly as a string to avoid JS large integer rounding errors
+    return this.write("place_bet", [marketId, prediction, weiAmountStr], { value: parseEther(amount) });
   }
 
   async resolveMarket(marketId: string): Promise<any> {
