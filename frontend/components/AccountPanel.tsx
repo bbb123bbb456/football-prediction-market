@@ -55,12 +55,14 @@ export function AccountPanel() {
   // Not connected state
   if (!isConnected) {
     return (
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <>
         <Button variant="gradient" disabled={isConnecting} onClick={() => setIsModalOpen(true)}>
           <User className="w-4 h-4 mr-2" />
           Connect Wallet
         </Button>
-        <DialogContent className="brand-card border-2">
+        
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="brand-card border-2">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
               Connect to dApp
@@ -118,6 +120,7 @@ export function AccountPanel() {
           </div>
         </DialogContent>
       </Dialog>
+    </>
     );
   }
 
