@@ -37,8 +37,8 @@ async function main() {
       const receipt = await client.waitForTransactionReceipt({
         hash: deployTransaction,
         status: "ACCEPTED",
-        retries: 60,
-        interval: 5000,
+        retries: 45, // 45 * 4s = 3 minutes
+        interval: 4000,
       });
 
       log(`✅ Contract successfully deployed to Bradbury!`);

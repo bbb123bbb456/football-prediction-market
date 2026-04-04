@@ -62,7 +62,7 @@ async function resolveMarket(client, market) {
       const receipt = await client.waitForTransactionReceipt({
         hash: txHash,
         status: "ACCEPTED",
-        retries: 200,      // long wait — oracle needs time
+        retries: 18,       // 18 * 10s = 3 minutes wait per attempt
         interval: 10000,   // check every 10s
       });
 

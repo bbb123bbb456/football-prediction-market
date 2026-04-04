@@ -94,7 +94,7 @@ async function createMarket(client, fixture) {
       await client.waitForTransactionReceipt({
         hash: txHash,
         status: "ACCEPTED",
-        retries: 150, // 150 * 4s = 10 minutes wait per attempt
+        retries: 45, // 45 * 4s = 3 minutes wait per attempt
         interval: 4000,
       });
 
