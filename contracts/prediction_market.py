@@ -38,17 +38,17 @@ LEAGUES = {
 class PredictionMarket(gl.Contract):
     # ── Markets ──────────────────────────────────────────────────────────────
     markets: TreeMap[str, str]                   # market_id → JSON
-    market_ids: DynArray[str]                    # ordered list of all market IDs
+    market_ids_json: str                         # JSON string array of all market IDs
 
     # ── Bets ─────────────────────────────────────────────────────────────────
     bets: TreeMap[str, str]                      # bet_key → JSON
-    market_bet_keys: TreeMap[str, str]            # market_id → JSON array of bet_keys
-    user_bet_keys: TreeMap[str, str]              # user_hex → JSON array of bet_keys
+    market_bet_keys: TreeMap[str, str]           # market_id → JSON array of bet_keys
+    user_bet_keys: TreeMap[str, str]             # user_hex → JSON array of bet_keys
 
     # ── Points / Leaderboard ─────────────────────────────────────────────────
-    points: TreeMap[str, u256]                    # user_hex → total correct predictions
-    scored_users: DynArray[str]                    # tracks users who have points
-    claimable_balances: TreeMap[str, u256]        # user_hex -> claimable GEN tokens (wei)
+    points: TreeMap[str, u256]                   # user_hex → total correct predictions
+    scored_users_json: str                       # JSON string array of users who have points
+    claimable_balances: TreeMap[str, u256]       # user_hex -> claimable GEN tokens (wei)
 
     # ── Config ───────────────────────────────────────────────────────────────
     market_count: u256
@@ -57,6 +57,8 @@ class PredictionMarket(gl.Contract):
     # Constructor
     # =========================================================================
     def __init__(self) -> None:
+        self.market_ids_json = "[]"
+        self.scored_users_json = "[]"
         self.market_count = u256(0)
 
     # =========================================================================
@@ -113,7 +115,11 @@ class PredictionMarket(gl.Contract):
         })
 
         self.markets[market_id] = market_data
-        self.market_ids.append(market_id)
+        
+        m_ids = json.loads(self.market_ids_json)
+        m_ids.append(market_id)
+        self.market_ids_json = json.dumps(m_ids)
+        
         self.market_count = self.market_count + u256(1)
 
     @gl.public.write
@@ -270,7 +276,10 @@ class PredictionMarket(gl.Contract):
                     # 1. Update Leaderboard Points
                     current_points = self.points.get(user, u256(0))
                     if current_points == u256(0):
-                        self.scored_users.append(user)
+                        s_users = json.loads(self.scored_users_json)
+                        if user not in s_users:
+                            s_users.append(user)
+                            self.scored_users_json = json.dumps(s_users)
                     self.points[user] = current_points + u256(1)
                     
                     # 2. Token Payout
@@ -313,14 +322,16 @@ class PredictionMarket(gl.Contract):
     @gl.public.view
     def get_all_markets(self) -> str:
         result = []
-        for mid in self.market_ids:
+        m_ids = json.loads(self.market_ids_json)
+        for mid in m_ids:
             result.append(json.loads(self.markets[mid]))
         return json.dumps(result)
 
     @gl.public.view
     def get_markets_by_league(self, league: str) -> str:
         result = []
-        for mid in self.market_ids:
+        m_ids = json.loads(self.market_ids_json)
+        for mid in m_ids:
             market = json.loads(self.markets[mid])
             if market["league"] == league:
                 result.append(market)
@@ -329,7 +340,8 @@ class PredictionMarket(gl.Contract):
     @gl.public.view
     def get_live_matches(self) -> str:
         result = []
-        for mid in self.market_ids:
+        m_ids = json.loads(self.market_ids_json)
+        for mid in m_ids:
             market = json.loads(self.markets[mid])
             if market["status"] == "open":
                 result.append(market)
@@ -356,7 +368,8 @@ class PredictionMarket(gl.Contract):
     @gl.public.view
     def get_leaderboard(self) -> str:
         entries = []
-        for user in self.scored_users:
+        s_users = json.loads(self.scored_users_json)
+        for user in s_users:
             pts = self.points.get(user, u256(0))
             total_bets = len(json.loads(self.user_bet_keys.get(user, "[]")))
             entries.append({
