@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { createPublicClient, http, formatEther } from "viem";
-import { useWallet } from "../genlayer/wallet";
+import { useAccount as useWallet } from "wagmi";
 
 // We use the exact ZkSync EVM RPC specific for MetaMask compatibility on GenLayer
 const evmClient = createPublicClient({

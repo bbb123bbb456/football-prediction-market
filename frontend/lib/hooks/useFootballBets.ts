@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import FootballBets from "../contracts/FootballBets";
 import { getContractAddress, getStudioUrl } from "../genlayer/client";
-import { useWallet } from "../genlayer/wallet";
+import { useAccount as useWallet } from "wagmi";
 import { success, error, configError } from "../utils/toast";
 import type { Bet, LeaderboardEntry } from "../contracts/types";
 

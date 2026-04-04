@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Loader2, Calendar, Users } from "lucide-react";
 import { useCreateBet } from "@/lib/hooks/useFootballBets";
-import { useWallet } from "@/lib/genlayer/wallet";
+import { useAccount as useWallet } from "wagmi";
 import { success, error } from "@/lib/utils/toast";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";

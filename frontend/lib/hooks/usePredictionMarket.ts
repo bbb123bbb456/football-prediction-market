@@ -1,249 +1,156 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import PredictionMarket from "../contracts/PredictionMarket";
-import { getContractAddress, getStudioUrl } from "../genlayer/client";
-import { useWallet } from "../genlayer/wallet";
-import { success, error } from "../utils/toast";
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { predictionMarketAbi } from "../wagmi";
+import { success, error, loading as toastLoading } from "../utils/toast";
 import { STATIC_FIXTURES, getFixturesByLeague as getStaticByLeague } from "../fixtures";
 import type { Market, Bet, LeaderboardEntry } from "../types";
 
-// ── Contract instance hook ────────────────────────────────────────────────
+const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
 
-export function usePredictionMarketContract(): PredictionMarket | null {
-  const { address } = useWallet();
-  const contractAddress = getContractAddress();
-  const studioUrl = getStudioUrl();
-
-  return useMemo(() => {
-    if (!contractAddress) return null;
-    return new PredictionMarket(contractAddress, address, studioUrl);
-  }, [contractAddress, address, studioUrl]);
-}
-
-// ── Helper: merge static fixtures with on-chain data ──────────────────────
-
-function mergeWithStatic(onChain: Market[], staticData: Market[]): Market[] {
-  if (onChain.length > 0) return onChain;
-  return staticData;
+// Helper to convert EVM Market struct to our frontend interface
+function mapEvmMarket(evmMarket: any): Market {
+  return {
+    market_id: evmMarket.id,
+    league: evmMarket.league,
+    league_name: evmMarket.league,
+    home_team: evmMarket.homeTeam,
+    away_team: evmMarket.awayTeam,
+    match_date: new Date(Number(evmMarket.matchTimestamp) * 1000).toISOString().split('T')[0],
+    status: evmMarket.state === 0 ? "open" : "resolved",
+    home_score: null,
+    away_score: null,
+    home_bets: Number(evmMarket.homePool) / 1e18,
+    away_bets: Number(evmMarket.awayPool) / 1e18,
+    draw_bets: Number(evmMarket.drawPool) / 1e18,
+    total_bets: Number(evmMarket.totalPool) / 1e18,
+    outcome: evmMarket.state === 2 ? "home" : evmMarket.state === 3 ? "away" : evmMarket.state === 4 ? "draw" : null,
+    creator: ""
+  };
 }
 
 // ── Read hooks ────────────────────────────────────────────────────────────
 
 export function useAllMarkets() {
-  const contract = usePredictionMarketContract();
-  return useQuery<Market[], Error>({
-    queryKey: ["markets", "all"],
-    queryFn: async () => {
-      if (!contract) return STATIC_FIXTURES as unknown as Market[];
-      try {
-        const data = await contract.getAllMarkets();
-        return data.length > 0 ? data : STATIC_FIXTURES as unknown as Market[];
-      } catch { return STATIC_FIXTURES as unknown as Market[]; }
-    },
-    enabled: true,
-    staleTime: 5000,
-    refetchOnWindowFocus: true,
+  const { data, isLoading, refetch } = useReadContract({
+    address: contractAddress,
+    abi: predictionMarketAbi,
+    functionName: "getAllMarkets",
+    query: {
+        staleTime: 5000,
+        refetchInterval: 10000,
+    }
   });
+
+  const markets = data ? (data as any[]).map(mapEvmMarket) : (STATIC_FIXTURES as unknown as Market[]);
+  return { data: markets, isLoading, refetch };
 }
 
 export function useMarket(marketId: string | null) {
-  const contract = usePredictionMarketContract();
-  return useQuery<Market | null, Error>({
-    queryKey: ["market", marketId],
-    queryFn: async () => {
-      if (!marketId) return null;
-      // Check static first
-      const staticMatch = STATIC_FIXTURES.find(f => f.market_id === marketId);
-      if (!contract) return (staticMatch as unknown as Market) || null;
-      try {
-        const data = await contract.getMarket(marketId);
-        if (data && !("error" in data)) return data;
-        return (staticMatch as unknown as Market) || null;
-      } catch { return (staticMatch as unknown as Market) || null; }
-    },
-    enabled: !!marketId,
-    staleTime: 5000,
-    refetchOnWindowFocus: true,
-  });
+  const { data } = useAllMarkets();
+  const market = data?.find(m => m.market_id === marketId) || null;
+  return { data: market, isLoading: !data };
 }
 
 export function useMarketsByLeague(league: string | null) {
-  const contract = usePredictionMarketContract();
-  return useQuery<Market[], Error>({
-    queryKey: ["markets", "league", league],
-    queryFn: async () => {
-      if (!league) return [];
-      const staticLeague = getStaticByLeague(league) as unknown as Market[];
-      if (!contract) return staticLeague;
-      try {
-        const data = await contract.getMarketsByLeague(league);
-        return data.length > 0 ? data : staticLeague;
-      } catch { return staticLeague; }
-    },
-    enabled: !!league,
-    staleTime: 5000,
-    refetchOnWindowFocus: true,
-  });
+  const { data } = useAllMarkets();
+  const markets = data?.filter(m => m.league.toLowerCase() === league?.toLowerCase()) || getStaticByLeague(league || "");
+  return { data: markets as Market[], isLoading: !data };
 }
 
 export function useLiveMatches() {
-  const contract = usePredictionMarketContract();
-  return useQuery<Market[], Error>({
-    queryKey: ["markets", "live"],
-    queryFn: async () => {
-      if (!contract) return STATIC_FIXTURES as unknown as Market[];
-      try {
-        const data = await contract.getLiveMatches();
-        return data.length > 0 ? data : STATIC_FIXTURES as unknown as Market[];
-      } catch { return STATIC_FIXTURES as unknown as Market[]; }
-    },
-    enabled: true,
-    staleTime: 10000,
-    refetchInterval: 30000,
-  });
+  const { data } = useAllMarkets();
+  const markets = data?.filter(m => m.status === "open") || [];
+  return { data: markets, isLoading: !data };
 }
 
-export function useUserBets(user: string | null) {
-  const contract = usePredictionMarketContract();
-  return useQuery<Bet[], Error>({
-    queryKey: ["userBets", user],
-    queryFn: () =>
-      contract && user ? contract.getUserBets(user) : Promise.resolve([]),
-    enabled: !!contract && !!user,
-    staleTime: 5000,
-    refetchOnWindowFocus: true,
-  });
-}
-
-export function useLeaderboard() {
-  const contract = usePredictionMarketContract();
-  return useQuery<LeaderboardEntry[], Error>({
-    queryKey: ["leaderboard"],
-    queryFn: () => (contract ? contract.getLeaderboard() : Promise.resolve([])),
-    enabled: !!contract,
-    staleTime: 10000,
-    refetchOnWindowFocus: true,
-  });
-}
-
+// User points are abstracted out because this is native ETH betting, we show ETH won instead of points
 export function useUserPoints(user: string | null) {
-  const contract = usePredictionMarketContract();
-  return useQuery<number, Error>({
-    queryKey: ["userPoints", user],
-    queryFn: () =>
-      contract && user ? contract.getUserPoints(user) : Promise.resolve(0),
-    enabled: !!contract && !!user,
-    staleTime: 5000,
-  });
+  return { data: 0, isLoading: false };
 }
+export function useUserBets(user: string | null) {
+  // We can't efficiently query all user bets from just smart contracts without a subgraph on Base Sepolia.
+  // For the sake of the hackathon/demo, we return an empty list or we can just filter events using viem logs.
+  return { data: [], isLoading: false };
+}
+export function useLeaderboard() {
+  return { data: [], isLoading: false };
+}
+
 
 // ── Write hooks ───────────────────────────────────────────────────────────
 
 export function useCreateMarket() {
-  const contract = usePredictionMarketContract();
-  const { address } = useWallet();
-  const queryClient = useQueryClient();
-  const [isCreating, setIsCreating] = useState(false);
+  const { writeContractAsync } = useWriteContract();
+  
+  const createMarketAsync = async ({ league, homeTeam, awayTeam, matchDate }: any) => {
+    const timestamp = Math.floor(new Date(matchDate).getTime() / 1000);
+    const id = `${league}_${homeTeam}_${awayTeam}_${matchDate}`.replace(/ /g, "_").toLowerCase();
+    
+    try {
+        const hash = await writeContractAsync({
+            address: contractAddress,
+            abi: predictionMarketAbi,
+            functionName: "createMarket",
+            args: [id, league, homeTeam, awayTeam, BigInt(timestamp)]
+        });
+        success("Market creation sent!", { description: "Waiting for confirmation..." });
+        return hash;
+    } catch(err: any) {
+        error("Failed to create market", { description: err?.shortMessage || err?.message });
+        throw err;
+    }
+  };
 
-  const mutation = useMutation({
-    mutationFn: async ({
-      league,
-      homeTeam,
-      awayTeam,
-      matchDate,
-    }: {
-      league: string;
-      homeTeam: string;
-      awayTeam: string;
-      matchDate: string;
-    }) => {
-      if (!contract) throw new Error("Contract not configured");
-      if (!address) throw new Error("Wallet not connected");
-      setIsCreating(true);
-      return contract.createMarket(league, homeTeam, awayTeam, matchDate);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["markets"] });
-      setIsCreating(false);
-      success("Market created!", { description: "Your market is now live on the blockchain." });
-    },
-    onError: (err: any) => {
-      setIsCreating(false);
-      error("Failed to create market", { description: err?.message || "Please try again." });
-    },
-  });
-
-  return { ...mutation, isCreating, createMarket: mutation.mutate, createMarketAsync: mutation.mutateAsync };
+  return { isCreating: false, createMarketAsync };
 }
 
 export function usePlaceBet() {
-  const contract = usePredictionMarketContract();
-  const { address } = useWallet();
-  const queryClient = useQueryClient();
-  const [isPlacing, setIsPlacing] = useState(false);
+  const { writeContractAsync } = useWriteContract();
 
-  const mutation = useMutation({
-    mutationFn: async ({ marketId, prediction, amount }: { marketId: string; prediction: string; amount: string }) => {
-      if (!contract) throw new Error("Contract not configured");
-      if (!address) throw new Error("Wallet not connected");
-      setIsPlacing(true);
-      return contract.placeBet(marketId, prediction, amount);
-    },
-    onSuccess: (_data, { marketId }) => {
-      queryClient.invalidateQueries({ queryKey: ["markets"] });
-      queryClient.invalidateQueries({ queryKey: ["market", marketId] });
-      queryClient.invalidateQueries({ queryKey: ["userBets"] });
-      queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
-      setIsPlacing(false);
-      success("Bet placed!", { description: "Your prediction has been recorded on the blockchain." });
-    },
-    onError: (err: any) => {
-      setIsPlacing(false);
-      error("Failed to place bet", { description: err?.message || "Please try again." });
-    },
-  });
+  const placeBetAsync = async ({ marketId, prediction, amount }: any) => {
+    const predMap: any = { HOME: 0, AWAY: 1, DRAW: 2 };
+    const val = BigInt((parseFloat(amount) * 1e18).toString());
 
-  return { ...mutation, isPlacing, placeBet: mutation.mutate, placeBetAsync: mutation.mutateAsync };
+    try {
+        const hash = await writeContractAsync({
+            address: contractAddress,
+            abi: predictionMarketAbi,
+            functionName: "placeBet",
+            args: [marketId, predMap[prediction]],
+            value: val
+        });
+        success("Bet transaction submitted!", { description: "Your prediction is being recorded." });
+        return hash;
+    } catch(err: any) {
+        error("Failed to place bet", { description: err?.shortMessage || err?.message });
+        throw err;
+    }
+  };
+
+  return { isPlacing: false, placeBetAsync };
 }
 
 export function useResolveMarket() {
-  const contract = usePredictionMarketContract();
-  const { address } = useWallet();
-  const queryClient = useQueryClient();
-  const [isResolving, setIsResolving] = useState(false);
-  const [resolvingMarketId, setResolvingMarketId] = useState<string | null>(null);
+  const { writeContractAsync, isPending } = useWriteContract();
 
-  const mutation = useMutation({
-    mutationFn: async (marketId: string) => {
-      if (!contract) throw new Error("Contract not configured");
-      if (!address) throw new Error("Wallet not connected");
-      setIsResolving(true);
-      setResolvingMarketId(marketId);
-      return contract.resolveMarket(marketId);
-    },
-    onSuccess: (_data, marketId) => {
-      queryClient.invalidateQueries({ queryKey: ["markets"] });
-      queryClient.invalidateQueries({ queryKey: ["market", marketId] });
-      queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
-      queryClient.invalidateQueries({ queryKey: ["userBets"] });
-      setIsResolving(false);
-      setResolvingMarketId(null);
-      success("Market resolved!", { description: "The match result has been verified by GenLayer." });
-    },
-    onError: (err: any) => {
-      setIsResolving(false);
-      setResolvingMarketId(null);
-      error("Failed to resolve market", { description: err?.message || "Please try again." });
-    },
-  });
-
-  return {
-    ...mutation,
-    isResolving,
-    resolvingMarketId,
-    resolveMarket: mutation.mutate,
-    resolveMarketAsync: mutation.mutateAsync,
+  const resolveMarketAsync = async (marketId: string) => {
+    try {
+        const hash = await writeContractAsync({
+            address: contractAddress,
+            abi: predictionMarketAbi,
+            functionName: "requestResolution",
+            args: [marketId]
+        });
+        success("Resolution requested!", { description: "The GenLayer Oracle will process this shortly." });
+        return hash;
+    } catch(err: any) {
+        error("Failed to resolve market", { description: err?.shortMessage || err?.message });
+        throw err;
+    }
   };
+
+  return { isResolving: isPending, resolveMarketAsync };
 }

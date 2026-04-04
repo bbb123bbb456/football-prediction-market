@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, LogOut, AlertCircle, ExternalLink } from "lucide-react";
-import { useWallet } from "@/lib/genlayer/wallet";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { usePlayerPoints } from "@/lib/hooks/useFootballBets";
 import { success, error, userRejected } from "@/lib/utils/toast";
 import { AddressDisplay } from "./AddressDisplay";
@@ -16,88 +16,57 @@ import {
   DialogTrigger,
 } from "./ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+const GENLAYER_CHAIN_ID = 84532; // To keep existing config constants 
 
 const METAMASK_INSTALL_URL = "https://metamask.io/download/";
 
 export function AccountPanel() {
-  const {
-    address,
-    isConnected,
-    isMetaMaskInstalled,
-    isOnCorrectNetwork,
-    isLoading,
-    connectWallet,
-    disconnectWallet,
-    switchWalletAccount,
-  } = useWallet();
+  const { address, isConnected, chainId } = useAccount();
+  const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
+  const { disconnect } = useDisconnect();
 
-  const { data: points = 0 } = usePlayerPoints(address);
+  const isOnCorrectNetwork = chainId === parseInt(process.env.NEXT_PUBLIC_GENLAYER_CHAIN_ID || "4460");
+  const isMetaMaskInstalled = typeof window !== "undefined" && !!window.ethereum;
+
+  const { data: points = 0 } = usePlayerPoints(address as string);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [connectionError, setConnectionError] = useState("");
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isSwitching, setIsSwitching] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const handleConnect = async () => {
-    if (!isMetaMaskInstalled) {
-      return;
-    }
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
+  const handleConnect = () => {
+    if (!isMetaMaskInstalled) return;
     try {
-      setIsConnecting(true);
-      setConnectionError("");
-      await connectWallet();
-      setIsModalOpen(false);
+      connect({ connector: connectors[0] });
     } catch (err: any) {
-      console.error("Failed to connect wallet:", err);
-      setConnectionError(err.message || "Failed to connect to MetaMask");
-
-      if (err.message?.includes("rejected")) {
-        userRejected("Connection cancelled");
-      } else {
-        error("Failed to connect wallet", {
-          description: err.message || "Check your MetaMask and try again."
-        });
-      }
-    } finally {
-      setIsConnecting(false);
+      error("Failed to connect wallet", { description: err.message });
     }
   };
 
   const handleDisconnect = () => {
-    disconnectWallet();
+    disconnect();
     setIsModalOpen(false);
   };
 
-  const handleSwitchAccount = async () => {
-    try {
-      setIsSwitching(true);
-      setConnectionError("");
-      await switchWalletAccount();
-      // Keep modal open to show new account info
-    } catch (err: any) {
-      console.error("Failed to switch account:", err);
-
-      // Don't show error if user cancelled
-      if (!err.message?.includes("rejected")) {
-        setConnectionError(err.message || "Failed to switch account");
-        error("Failed to switch account", {
-          description: err.message || "Please try again."
-        });
-      } else {
-        userRejected("Account switch cancelled");
-      }
-    } finally {
-      setIsSwitching(false);
-    }
+  const handleSwitchAccount = () => {
+    // Wagmi automatically syncs with MetaMask account picker
+    // Usually triggering an eth_requestAccounts or wallet_requestPermissions is possible,
+    // but the cleanest way is just to tell users to switch in extension.
+    alert("Please switch your account directly in the MetaMask extension.");
   };
+
+  // SSR mismatch prevention
+  if (!mounted) return null;
 
   // Not connected state
   if (!isConnected) {
     return (
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogTrigger asChild>
-          <Button variant="gradient" disabled={isLoading}>
+          <Button variant="gradient" disabled={isConnecting}>
             <User className="w-4 h-4 mr-2" />
             Connect Wallet
           </Button>
@@ -105,10 +74,10 @@ export function AccountPanel() {
         <DialogContent className="brand-card border-2">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
-              Connect to GenLayer
+              Connect to dApp
             </DialogTitle>
             <DialogDescription>
-              Connect your MetaMask wallet to start betting
+              Connect your MetaMask wallet to start betting on EVM
             </DialogDescription>
           </DialogHeader>
 
@@ -132,13 +101,6 @@ export function AccountPanel() {
                   <ExternalLink className="w-5 h-5 mr-2" />
                   Install MetaMask
                 </Button>
-
-                <div className="p-4 rounded-lg bg-muted/10 border border-muted/20">
-                  <p className="text-xs text-muted-foreground">
-                    After installing MetaMask, refresh this page and click
-                    &quot;Connect Wallet&quot; again.
-                  </p>
-                </div>
               </>
             ) : (
               <>
@@ -152,24 +114,13 @@ export function AccountPanel() {
                   {isConnecting ? "Connecting..." : "Connect MetaMask"}
                 </Button>
 
-                {connectionError && (
+                {connectError && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Connection Error</AlertTitle>
-                    <AlertDescription>{connectionError}</AlertDescription>
+                    <AlertDescription>{connectError.message}</AlertDescription>
                   </Alert>
                 )}
-
-                <div className="p-4 rounded-lg bg-muted/10 border border-muted/20">
-                  <p className="text-xs text-muted-foreground">
-                    This will open MetaMask and prompt you to:
-                  </p>
-                  <ol className="text-xs text-muted-foreground list-decimal list-inside mt-2 space-y-1">
-                    <li>Connect your wallet to this application</li>
-                    <li>Add the GenLayer network to MetaMask</li>
-                    <li>Switch to the GenLayer network</li>
-                  </ol>
-                </div>
               </>
             )}
           </div>
@@ -185,12 +136,7 @@ export function AccountPanel() {
         <div className="brand-card px-4 py-2 flex items-center gap-3">
           <div className="flex items-center gap-2">
             <User className="w-4 h-4 text-accent" />
-            <AddressDisplay address={address} maxLength={12} />
-          </div>
-          <div className="h-4 w-px bg-white/10" />
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-semibold text-accent">{points}</span>
-            <span className="text-xs text-muted-foreground">pts</span>
+            <AddressDisplay address={address || ""} maxLength={12} />
           </div>
         </div>
 
@@ -207,7 +153,7 @@ export function AccountPanel() {
             Wallet Details
           </DialogTitle>
           <DialogDescription>
-            Your connected MetaMask wallet information
+            Your connected EVM wallet information
           </DialogDescription>
         </DialogHeader>
 
@@ -215,11 +161,6 @@ export function AccountPanel() {
           <div className="brand-card p-4 space-y-2">
             <p className="text-sm text-muted-foreground">Your Address</p>
             <code className="text-sm font-mono break-all">{address}</code>
-          </div>
-
-          <div className="brand-card p-4 space-y-2">
-            <p className="text-sm text-muted-foreground">Your Points</p>
-            <p className="text-2xl font-bold text-accent">{points}</p>
           </div>
 
           <div className="brand-card p-4 space-y-2">
@@ -234,7 +175,7 @@ export function AccountPanel() {
               />
               <span className="text-sm">
                 {isOnCorrectNetwork
-                  ? "Connected to GenLayer"
+                  ? "Connected to Expected Network"
                   : "Wrong Network"}
               </span>
             </div>
@@ -245,17 +186,9 @@ export function AccountPanel() {
               <AlertCircle className="h-4 w-4 text-yellow-500" />
               <AlertTitle>Network Warning</AlertTitle>
               <AlertDescription>
-                You&apos;re not on the GenLayer network. Please switch networks in
-                MetaMask or try reconnecting.
+                You&apos;re not on the Base Sepolia network. Please switch networks in
+                MetaMask.
               </AlertDescription>
-            </Alert>
-          )}
-
-          {connectionError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{connectionError}</AlertDescription>
             </Alert>
           )}
 
@@ -264,29 +197,19 @@ export function AccountPanel() {
               onClick={handleSwitchAccount}
               variant="outline"
               className="w-full"
-              disabled={isSwitching || isLoading}
             >
               <User className="w-4 h-4 mr-2" />
-              {isSwitching ? "Switching..." : "Switch Account"}
+              Switch Account
             </Button>
 
             <Button
               onClick={handleDisconnect}
               className="w-full text-destructive hover:text-destructive"
               variant="outline"
-              disabled={isSwitching || isLoading}
             >
               <LogOut className="w-4 h-4 mr-2" />
               Disconnect Wallet
             </Button>
-          </div>
-
-          <div className="p-4 rounded-lg bg-muted/10 border border-muted/20">
-            <p className="text-xs text-muted-foreground">
-              Use &quot;Switch Account&quot; to select a different MetaMask
-              account. Use &quot;Disconnect&quot; to remove this site from
-              MetaMask.
-            </p>
           </div>
         </div>
       </DialogContent>

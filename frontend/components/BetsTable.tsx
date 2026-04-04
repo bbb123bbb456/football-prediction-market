@@ -2,7 +2,7 @@
 
 import { Loader2, Trophy, Clock, AlertCircle } from "lucide-react";
 import { useBets, useResolveBet, useFootballBetsContract } from "@/lib/hooks/useFootballBets";
-import { useWallet } from "@/lib/genlayer/wallet";
+import { useAccount as useWallet } from "wagmi";
 import { error } from "@/lib/utils/toast";
 import { AddressDisplay } from "./AddressDisplay";
 import { Button } from "./ui/button";

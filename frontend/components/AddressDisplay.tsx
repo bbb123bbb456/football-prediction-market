@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
-import { formatAddress } from "@/lib/genlayer/wallet";
+
 import { success, error } from "@/lib/utils/toast";
 
 interface AddressDisplayProps {
@@ -10,6 +10,13 @@ interface AddressDisplayProps {
   maxLength?: number;
   className?: string;
   showCopy?: boolean;
+}
+
+function formatAddress(address: string, maxLength: number) {
+  if (!address) return "";
+  if (address.length <= maxLength) return address;
+  const charsToShow = Math.floor((maxLength - 3) / 2);
+  return `${address.slice(0, charsToShow + 2)}...${address.slice(-charsToShow)}`;
 }
 
 /**

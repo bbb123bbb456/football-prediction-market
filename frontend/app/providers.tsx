@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
-import { WalletProvider } from "@/lib/genlayer/WalletProvider";
+import { WagmiProvider } from 'wagmi';
+import { config } from '@/lib/wagmi';
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  // Use useState to ensure QueryClient is only created once per component lifecycle
-  // This prevents the client from being recreated on every render
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -21,11 +20,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <WalletProvider>
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
         {children}
-      </WalletProvider>
-      <Toaster
+        <Toaster
         position="top-right"
         theme="dark"
         richColors
@@ -41,5 +39,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }}
       />
     </QueryClientProvider>
+   </WagmiProvider>
   );
 }

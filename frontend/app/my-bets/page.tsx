@@ -2,7 +2,7 @@
 
 import { Navbar } from "@/components/Navbar";
 import { useUserBets } from "@/lib/hooks/usePredictionMarket";
-import { useWallet } from "@/lib/genlayer/wallet";
+import { useAccount as useWallet } from "wagmi";
 import Link from "next/link";
 import type { Bet } from "@/lib/types";
 import { PREDICTION_LABELS, type PredictionType } from "@/lib/constants";

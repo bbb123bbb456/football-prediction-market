@@ -7,7 +7,7 @@ import { OddsChart } from "@/components/OddsChart";
 import Link from "next/link";
 import { useMarket, useResolveMarket } from "@/lib/hooks/usePredictionMarket";
 import { getLeagueBySlug } from "@/lib/constants";
-import { useWallet } from "@/lib/genlayer/wallet";
+import { useAccount as useWallet } from "wagmi";
 
 function formatDate(dateStr: string) {
   return new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useCreateMarket } from "@/lib/hooks/usePredictionMarket";
 import { LEAGUES, LEAGUE_SLUGS, type LeagueSlug } from "@/lib/constants";
-import { useWallet } from "@/lib/genlayer/wallet";
+import { useAccount as useWallet } from "wagmi";
 
 export function CreateMarketModal() {
   const [open, setOpen] = useState(false);

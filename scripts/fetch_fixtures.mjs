@@ -41,8 +41,8 @@ function filterForOurTeams(matches, leagueSlug) {
     const home = mapTeamName(match.homeTeam?.name || "");
     const away = mapTeamName(match.awayTeam?.name || "");
 
-    // Match must involve at least one of our teams
-    if (!ourTeams.includes(home) && !ourTeams.includes(away)) continue;
+    // Both teams must be in our top 5 (contract enforces this)
+    if (!ourTeams.includes(home) || !ourTeams.includes(away)) continue;
 
     const utcDate = match.utcDate?.split("T")[0]; // "2026-04-11"
     if (!utcDate) continue;
